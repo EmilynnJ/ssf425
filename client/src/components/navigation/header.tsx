@@ -38,13 +38,18 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-primary-dark/80 backdrop-blur-lg border-b border-accent-gold/30">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo with Eye Image */}
+          {/* Logo with Eye Icon */}
           <Link href={PATHS.HOME} className="flex items-center">
-            <img 
-              src="/images/eye-icon.svg" 
-              alt="SoulSeer Eye" 
-              className="h-10 w-auto mr-2"
-            />
+            <div className="mr-3 relative">
+              {/* Eye with glow/sunburst effect */}
+              <div className="w-10 h-10 rounded-full bg-white absolute top-0 left-0 animate-pulse opacity-40 blur-md"></div>
+              <div className="w-10 h-10 rounded-full bg-pink-600/70 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-indigo-900 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-purple-700"></div>
+                  <div className="w-2 h-2 rounded-full bg-white absolute top-3 left-3"></div>
+                </div>
+              </div>
+            </div>
             <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
           </Link>
           
