@@ -1,5 +1,5 @@
 import { GlowCard } from "@/components/ui/glow-card";
-import { Heart, Scale, UserHeart } from "lucide-react";
+import { Heart, Scale, User } from "lucide-react";
 
 const values = [
   {
@@ -15,7 +15,7 @@ const values = [
     delay: 0.5
   },
   {
-    icon: <UserHeart className="text-3xl" />,
+    icon: <User className="text-3xl" />,
     title: "Empowerment",
     description: "We aim to empower both our clients and readers, fostering growth, independence, and positive change.",
     delay: 1
