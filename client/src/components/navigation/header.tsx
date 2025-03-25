@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Menu, X, User, LogOut } from "lucide-react";
 import { PATHS } from "@/lib/constants";
 import { CelestialButton } from "@/components/ui/celestial-button";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { EyeIcon } from "@/components/ui/eye-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,17 +41,8 @@ export function Header() {
         <div className="flex justify-between items-center">
           {/* Logo with Eye Icon */}
           <Link href={PATHS.HOME} className="flex items-center">
-            <div className="mr-3 relative">
-              {/* Eye with glow/sunburst effect */}
-              <div className="w-10 h-10 rounded-full bg-white absolute top-0 left-0 animate-pulse opacity-40 blur-md"></div>
-              <div className="w-10 h-10 rounded-full bg-pink-600/70 flex items-center justify-center">
-                <div className="w-8 h-8 rounded-full bg-indigo-900 flex items-center justify-center">
-                  <div className="w-5 h-5 rounded-full bg-purple-700"></div>
-                  <div className="w-2 h-2 rounded-full bg-white absolute top-3 left-3"></div>
-                </div>
-              </div>
-            </div>
-            <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
+            <EyeIcon />
+            <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent ml-2">SoulSeer</span>
           </Link>
           
           {/* Navigation - Desktop */}
