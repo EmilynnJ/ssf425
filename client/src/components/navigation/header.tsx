@@ -41,9 +41,9 @@ export function Header() {
           {/* Logo with Eye Image */}
           <Link href={PATHS.HOME} className="flex items-center">
             <img 
-              src="/images/Picsart_25-03-12_11-39-59-336 (1).jpg" 
+              src="/images/eye-image.png" 
               alt="SoulSeer Eye" 
-              className="h-10 mr-2 rounded-full"
+              className="h-10 mr-2"
             />
             <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
           </Link>
