@@ -1,7 +1,6 @@
 import { Link } from "wouter";
 import { PATHS } from "@/lib/constants";
 import { CelestialButton } from "@/components/ui/celestial-button";
-import { SoulSeerLogo } from "@/assets/svg/logo";
 import { StarField } from "@/components/ui/star-field";
 
 export function HeroSection() {
@@ -9,8 +8,14 @@ export function HeroSection() {
     <div className="flex flex-col items-center text-center mb-20 relative">
       <StarField />
       
-      <div className="w-32 h-32 mb-6 rounded-full border-2 border-secondary overflow-hidden z-10">
-        <SoulSeerLogo className="w-full h-full" />
+      {/* Hero image with the eye and sunburst */}
+      <div className="w-full max-w-3xl mx-auto mb-8 relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl backdrop-blur-sm animate-pulse-slow"></div>
+        <img 
+          src="/images/hero-eye-image.jpg" 
+          alt="SoulSeer - Psychic with glowing third eye" 
+          className="w-full h-auto rounded-2xl shadow-2xl shadow-purple-600/30 z-10"
+        />
       </div>
       
       <h1 className="text-5xl md:text-6xl font-cinzel mb-4 z-10">
