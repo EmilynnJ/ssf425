@@ -38,8 +38,13 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-primary-dark/80 backdrop-blur-lg border-b border-accent-gold/30">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo */}
+          {/* Logo with Eye Image */}
           <Link href={PATHS.HOME} className="flex items-center">
+            <img 
+              src="/images/Picsart_25-03-12_11-39-59-336 (1).jpg" 
+              alt="SoulSeer Eye" 
+              className="h-10 mr-2 rounded-full"
+            />
             <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
           </Link>
           
