@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -12,46 +12,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Setup WebSocket server for live readings
+  // Setup WebSocket server for live readings and real-time communication
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
-  wss.on('connection', (ws) => {
-    console.log('WebSocket client connected');
+  // Track all connected WebSocket clients
+  const connectedClients = new Map();
+  let clientIdCounter = 1;
+  
+  // Broadcast a message to all connected clients
+  const broadcastToAll = (message: any) => {
+    const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      }
+    });
+  };
+  
+  // Send a notification to a specific user if they're connected
+  const notifyUser = (userId: number, notification: any) => {
+    const userClients = Array.from(connectedClients.entries())
+      .filter(([_, data]) => data.userId === userId)
+      .map(([clientId]) => clientId);
+      
+    userClients.forEach(clientId => {
+      const clientSocket = connectedClients.get(clientId)?.socket;
+      if (clientSocket && clientSocket.readyState === WebSocket.OPEN) {
+        clientSocket.send(JSON.stringify(notification));
+      }
+    });
+  };
+  
+  // Broadcast activity to keep readings page updated in real-time
+  const broadcastReaderActivity = async (readerId: number, status: string) => {
+    try {
+      const reader = await storage.getUser(readerId);
+      if (!reader) return;
+      
+      // Extract safe reader data
+      const { password, ...safeReader } = reader;
+      
+      broadcastToAll({
+        type: 'reader_status_change',
+        reader: safeReader,
+        status,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('Error broadcasting reader activity:', error);
+    }
+  };
+  
+  wss.on('connection', (ws, req) => {
+    const clientId = clientIdCounter++;
+    let userId: number | null = null;
+    
+    console.log(`WebSocket client connected [id=${clientId}]`);
+    
+    // Store client connection
+    connectedClients.set(clientId, { socket: ws, userId });
+    
+    // Send initial welcome message with client ID
+    ws.send(JSON.stringify({ 
+      type: 'connected', 
+      message: 'Connected to SoulSeer WebSocket Server',
+      clientId,
+      serverTime: Date.now()
+    }));
     
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString());
-        console.log('WebSocket message received:', data);
+        console.log(`WebSocket message received from client ${clientId}:`, data.type);
         
         // Handle ping messages
         if (data.type === 'ping') {
-          console.log('Ping received, sending pong');
           ws.send(JSON.stringify({ 
             type: 'pong', 
             timestamp: data.timestamp,
-            serverTime: Date.now() 
+            serverTime: Date.now()
+          }));
+        }
+        
+        // Handle authentication
+        else if (data.type === 'authenticate' && data.userId) {
+          userId = data.userId;
+          
+          // Update the client data with user ID
+          connectedClients.set(clientId, { socket: ws, userId });
+          
+          console.log(`Client ${clientId} authenticated as user ${userId}`);
+          
+          // If user is a reader, broadcast their online status
+          if (userId !== null) {
+            storage.getUser(userId).then(user => {
+              if (user && user.role === 'reader') {
+                storage.updateUser(userId as number, { isOnline: true });
+                broadcastReaderActivity(userId as number, 'online');
+              }
+            }).catch(err => {
+              console.error('Error updating reader status:', err);
+            });
+          }
+          
+          // Confirm authentication success
+          ws.send(JSON.stringify({
+            type: 'authentication_success',
+            userId,
+            timestamp: Date.now()
+          }));
+        }
+        
+        // Handle subscribing to specific channels
+        else if (data.type === 'subscribe' && data.channel) {
+          console.log(`Client ${clientId} subscribed to ${data.channel}`);
+          
+          // Store subscription data with the client
+          const clientData = connectedClients.get(clientId);
+          if (clientData) {
+            connectedClients.set(clientId, {
+              ...clientData,
+              subscriptions: [...(clientData.subscriptions || []), data.channel]
+            });
+          }
+          
+          ws.send(JSON.stringify({
+            type: 'subscription_success',
+            channel: data.channel,
+            timestamp: Date.now()
           }));
         }
       } catch (error) {
-        console.error('Error processing WebSocket message:', error);
+        console.error(`Error processing WebSocket message from client ${clientId}:`, error);
+        
+        // Send error notification back to client
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Failed to process message',
+          timestamp: Date.now()
+        }));
       }
     });
     
-    ws.on('close', () => {
-      console.log('WebSocket client disconnected');
+    ws.on('close', (code, reason) => {
+      console.log(`WebSocket client ${clientId} disconnected. Code: ${code}, Reason: ${reason}`);
+      
+      // If user is a reader, update their status and broadcast offline status
+      if (userId) {
+        storage.getUser(userId).then(user => {
+          if (user && user.role === 'reader') {
+            storage.updateUser(userId, { isOnline: false });
+            broadcastReaderActivity(userId, 'offline');
+          }
+        }).catch(err => {
+          console.error('Error updating reader status on disconnect:', err);
+        });
+      }
+      
+      // Remove client from connected clients
+      connectedClients.delete(clientId);
     });
     
     ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
+      console.error(`WebSocket error for client ${clientId}:`, error);
+      connectedClients.delete(clientId);
     });
-    
-    // Send welcome message
-    ws.send(JSON.stringify({ 
-      type: 'connected', 
-      message: 'Connected to SoulSeer WebSocket Server',
-      serverTime: Date.now()
-    }));
   });
+  
+  // Add WebSocket related utilities to global scope for use in API routes
+  (global as any).websocket = {
+    broadcastToAll,
+    notifyUser,
+    broadcastReaderActivity
+  };
   
   // API Routes
   
