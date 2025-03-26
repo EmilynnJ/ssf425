@@ -5,7 +5,6 @@ import { PATHS } from "@/lib/constants";
 import { CelestialButton } from "@/components/ui/celestial-button";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { EyeIcon } from "@/components/ui/eye-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
