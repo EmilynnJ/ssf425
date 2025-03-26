@@ -30,9 +30,9 @@ export function Footer() {
           {/* Logo & Description */}
           <div className="md:col-span-1">
             <Link href={PATHS.HOME} className="inline-block mb-4">
-              <span className="text-3xl font-['Great_Vibes'] text-accent">SoulSeer</span>
+              <span className="text-3xl font-alexbrush text-accent">SoulSeer</span>
             </Link>
-            <p className="text-light/70 mb-4">
+            <p className="text-light/70 mb-4 font-playfair">
               Connecting souls through ethical spiritual guidance and authentic psychic readings.
             </p>
             <div className="flex space-x-4">
@@ -70,7 +70,7 @@ export function Footer() {
           {/* Quick Links */}
           <div>
             <h3 className="text-secondary font-cinzel text-lg mb-4">Quick Links</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-2 font-playfair">
               <li>
                 <Link
                   href={PATHS.READERS}
@@ -117,7 +117,7 @@ export function Footer() {
           {/* Support */}
           <div>
             <h3 className="text-secondary font-cinzel text-lg mb-4">Support</h3>
-            <ul className="space-y-2">
+            <ul className="space-y-2 font-playfair">
               <li>
                 <Link
                   href={PATHS.HELP}
@@ -164,7 +164,7 @@ export function Footer() {
           {/* Newsletter */}
           <div>
             <h3 className="text-secondary font-cinzel text-lg mb-4">Join Our Newsletter</h3>
-            <p className="text-light/70 mb-4">
+            <p className="text-light/70 mb-4 font-playfair">
               Stay updated with the latest spiritual guidance and offers.
             </p>
             <form className="mb-4" onSubmit={handleNewsletterSubmit}>
@@ -192,7 +192,7 @@ export function Footer() {
         
         {/* Bottom Bar */}
         <div className="pt-6 border-t border-accent-gold/10 text-center">
-          <p className="text-light/50 text-sm">
+          <p className="text-light/50 text-sm font-playfair">
             &copy; {new Date().getFullYear()} SoulSeer. All rights reserved. Made with 💜 for spiritual seekers everywhere.
           </p>
         </div>

@@ -129,7 +129,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`block py-2 text-light hover:text-accent transition duration-300 ${
+                className={`block py-2 text-light hover:text-accent transition duration-300 font-playfair ${
                   location === link.href ? "text-accent" : ""
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
