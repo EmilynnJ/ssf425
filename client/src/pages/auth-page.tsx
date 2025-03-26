@@ -38,17 +38,17 @@ export default function AuthPage() {
             className="w-full max-w-md mx-auto"
           >
             <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="login" className="text-lg">Login</TabsTrigger>
-              <TabsTrigger value="register" className="text-lg">Register</TabsTrigger>
+              <TabsTrigger value="login" className="text-lg font-cinzel">Login</TabsTrigger>
+              <TabsTrigger value="register" className="text-lg font-cinzel">Register</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
               <LoginForm onSuccess={() => {}} />
               <div className="text-center mt-4">
-                <p className="text-light/70">
+                <p className="text-light/70 font-playfair">
                   Don't have an account?{" "}
                   <button
                     onClick={() => setActiveTab("register")}
-                    className="text-accent hover:text-accent-dark underline transition-colors"
+                    className="text-accent hover:text-accent-dark underline transition-colors font-playfair"
                   >
                     Register here
                   </button>
@@ -58,11 +58,11 @@ export default function AuthPage() {
             <TabsContent value="register">
               <RegisterForm onSuccess={() => {}} />
               <div className="text-center mt-4">
-                <p className="text-light/70">
+                <p className="text-light/70 font-playfair">
                   Already have an account?{" "}
                   <button
                     onClick={() => setActiveTab("login")}
-                    className="text-accent hover:text-accent-dark underline transition-colors"
+                    className="text-accent hover:text-accent-dark underline transition-colors font-playfair"
                   >
                     Login here
                   </button>

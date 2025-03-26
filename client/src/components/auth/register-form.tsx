@@ -70,7 +70,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             name="fullName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Full Name</FormLabel>
+                <FormLabel className="text-light font-playfair">Full Name</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your full name"

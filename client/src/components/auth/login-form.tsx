@@ -53,12 +53,12 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Username or Email</FormLabel>
+                <FormLabel className="text-light font-playfair">Username or Email</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your username or email"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
@@ -71,13 +71,13 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Password</FormLabel>
+                <FormLabel className="text-light font-playfair">Password</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
                     placeholder="Enter your password"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
