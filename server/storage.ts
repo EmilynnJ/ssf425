@@ -151,7 +151,13 @@ export class MemStorage implements IStorage {
       createdAt: now, 
       lastActive: now, 
       isOnline: false,
-      reviewCount: 0
+      reviewCount: 0,
+      profileImage: insertUser.profileImage || null,
+      bio: insertUser.bio || null,
+      specialties: insertUser.specialties || null,
+      pricing: insertUser.pricing || null,
+      rating: insertUser.rating || null,
+      verified: insertUser.verified || false
     };
     this.users.set(id, user);
     return user;
