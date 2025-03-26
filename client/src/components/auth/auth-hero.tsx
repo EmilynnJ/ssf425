@@ -10,12 +10,12 @@ export function AuthHero() {
         <SoulSeerLogo className="w-full h-full" />
       </div>
       
-      <h1 className="text-4xl font-cinzel mb-4">
+      <h1 className="text-5xl font-alex mb-4">
         <span className="text-accent">Soul</span>
         <span className="text-secondary">Seer</span>
       </h1>
       
-      <p className="text-xl text-light/80 mb-6">A Community of Gifted Psychics</p>
+      <p className="text-xl text-light/80 mb-6 font-playfair">A Community of Gifted Psychics</p>
       
       <div className="max-w-md mx-auto">
         <ul className="space-y-4 text-left">
@@ -23,35 +23,35 @@ export function AuthHero() {
             <div className="w-6 h-6 mr-3 rounded-full bg-accent/20 flex items-center justify-center">
               <span className="text-secondary">✓</span>
             </div>
-            <span className="text-light/90">Connect with gifted psychics for spiritual guidance</span>
+            <span className="text-light/90 font-playfair">Connect with gifted psychics for spiritual guidance</span>
           </li>
           <li className="flex items-center">
             <div className="w-6 h-6 mr-3 rounded-full bg-accent/20 flex items-center justify-center">
               <span className="text-secondary">✓</span>
             </div>
-            <span className="text-light/90">Access on-demand readings and live streams</span>
+            <span className="text-light/90 font-playfair">Access on-demand readings and live streams</span>
           </li>
           <li className="flex items-center">
             <div className="w-6 h-6 mr-3 rounded-full bg-accent/20 flex items-center justify-center">
               <span className="text-secondary">✓</span>
             </div>
-            <span className="text-light/90">Join a community of spiritual seekers</span>
+            <span className="text-light/90 font-playfair">Join a community of spiritual seekers</span>
           </li>
           <li className="flex items-center">
             <div className="w-6 h-6 mr-3 rounded-full bg-accent/20 flex items-center justify-center">
               <span className="text-secondary">✓</span>
             </div>
-            <span className="text-light/90">Shop for mystical products and spiritual tools</span>
+            <span className="text-light/90 font-playfair">Shop for mystical products and spiritual tools</span>
           </li>
         </ul>
       </div>
       
       <div className="mt-8 text-light/60 max-w-md">
-        <p>
+        <p className="font-playfair italic">
           "SoulSeer has transformed my spiritual practice. The readings I've received have provided
           clarity and guidance during challenging times."
         </p>
-        <p className="mt-2 text-accent font-semibold">— Sarah K., Member since 2024</p>
+        <p className="mt-2 text-accent font-playfair">— Sarah K., Member since 2024</p>
       </div>
     </div>
   );

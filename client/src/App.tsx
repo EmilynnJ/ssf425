@@ -20,18 +20,18 @@ function Router() {
         <Route path="/about" component={AboutPage} />
         <Route path="/auth" component={AuthPage} />
         {/* Protected routes */}
-        <ProtectedRoute path="/dashboard" component={() => <div>Dashboard Page</div>} />
-        <ProtectedRoute path="/messages" component={() => <div>Messages Page</div>} />
+        <ProtectedRoute path="/dashboard" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Dashboard</h1><p className="font-playfair">Your personal dashboard is coming soon.</p></div>} />
+        <ProtectedRoute path="/messages" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Messages</h1><p className="font-playfair">Your messages will appear here.</p></div>} />
         {/* Public routes */}
-        <Route path="/readers" component={() => <div>Readers Page</div>} />
-        <Route path="/readers/:id" component={() => <div>Reader Details Page</div>} />
-        <Route path="/live" component={() => <div>Live Page</div>} />
-        <Route path="/live/:id" component={() => <div>Live Stream Page</div>} />
-        <Route path="/shop" component={() => <div>Shop Page</div>} />
-        <Route path="/community" component={() => <div>Community Page</div>} />
-        <Route path="/help" component={() => <div>Help Center Page</div>} />
-        <Route path="/policies" component={() => <div>Policies Page</div>} />
-        <Route path="/apply" component={() => <div>Apply as Reader Page</div>} />
+        <Route path="/readers" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Our Readers</h1><p className="font-playfair">Meet our gifted psychic readers.</p></div>} />
+        <Route path="/readers/:id" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Reader Profile</h1><p className="font-playfair">Reader details will appear here.</p></div>} />
+        <Route path="/live" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Live Streams</h1><p className="font-playfair">Watch live psychic readings and spiritual sessions.</p></div>} />
+        <Route path="/live/:id" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Live Stream</h1><p className="font-playfair">This live stream will appear here.</p></div>} />
+        <Route path="/shop" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Spiritual Shop</h1><p className="font-playfair">Browse our mystical products and spiritual tools.</p></div>} />
+        <Route path="/community" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Community</h1><p className="font-playfair">Connect with fellow spiritual seekers.</p></div>} />
+        <Route path="/help" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Help Center</h1><p className="font-playfair">Find answers to your questions.</p></div>} />
+        <Route path="/policies" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Policies</h1><p className="font-playfair">Our terms, privacy policy, and guidelines.</p></div>} />
+        <Route path="/apply" component={() => <div className="container min-h-screen py-8"><h1 className="text-4xl font-alex mb-6">Apply as Reader</h1><p className="font-playfair">Join our network of gifted psychic readers.</p></div>} />
         {/* Fallback to 404 */}
         <Route component={NotFound} />
       </Switch>
