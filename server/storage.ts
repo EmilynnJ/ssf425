@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage } from "@shared/schema";
+import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -149,14 +149,14 @@ export class MemStorage implements IStorage {
     return user;
   }
   
-  async updateUser(id: number, userData: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(id: number, userData: UserUpdate): Promise<User | undefined> {
     const user = this.users.get(id);
     if (!user) return undefined;
     
     const updatedUser: User = {
       ...user,
       ...userData,
-      lastActive: new Date()
+      lastActive: userData.lastActive || new Date()
     };
     
     this.users.set(id, updatedUser);
