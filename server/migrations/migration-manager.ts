@@ -1,7 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import { pool, query } from '../database';
 import { log } from '../vite';
+
+// ES Module alternative for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Create a table to track migrations if it doesn't exist
 const createMigrationsTableQuery = `
