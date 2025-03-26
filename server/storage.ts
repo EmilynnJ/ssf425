@@ -532,7 +532,8 @@ export class DatabaseStorage implements IStorage {
       completedAt: null,
       rating: null,
       review: null,
-      scheduledFor: reading.scheduledFor ?? null
+      scheduledFor: reading.scheduledFor ?? null,
+      notes: reading.notes ?? null
     }).returning();
 
     return createdReading;
