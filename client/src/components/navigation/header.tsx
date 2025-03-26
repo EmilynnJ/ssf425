@@ -40,7 +40,7 @@ export function Header() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href={PATHS.HOME} className="flex items-center">
-            <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
+            <span className="text-3xl md:text-4xl font-alex-brush text-accent">SoulSeer</span>
           </Link>
           
           {/* Navigation - Desktop */}
@@ -49,7 +49,7 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-light hover:text-accent transition duration-300 ${
+                className={`text-light hover:text-accent transition duration-300 font-playfair ${
                   location === link.href ? "text-accent" : ""
                 }`}
               >
@@ -70,14 +70,14 @@ export function Header() {
                         {user.fullName.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline text-light">{user.fullName}</span>
+                    <span className="hidden md:inline text-light font-playfair">{user.fullName}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuLabel className="font-cinzel">My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href={PATHS.DASHBOARD} className="cursor-pointer w-full">
+                    <Link href={PATHS.DASHBOARD} className="cursor-pointer w-full font-playfair">
                       <User className="mr-2 h-4 w-4" />
                       <span>Dashboard</span>
                     </Link>
@@ -85,7 +85,7 @@ export function Header() {
                   <DropdownMenuItem
                     onClick={() => logoutMutation.mutate()}
                     disabled={logoutMutation.isPending}
-                    className="text-destructive focus:text-destructive cursor-pointer"
+                    className="text-destructive focus:text-destructive cursor-pointer font-playfair"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>{logoutMutation.isPending ? "Logging out..." : "Logout"}</span>

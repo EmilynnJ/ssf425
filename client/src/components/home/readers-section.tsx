@@ -17,7 +17,7 @@ export function ReadersSection() {
     <div className="mb-20">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-4xl font-alex-brush text-secondary">Online Now</h2>
-        <Link href={PATHS.READERS} className="text-accent hover:text-accent-dark transition duration-300 flex items-center">
+        <Link href={PATHS.READERS} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair">
           View All
           <svg
             className="ml-1 h-4 w-4"
@@ -90,9 +90,9 @@ export function ReadersSection() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
-                  <span className="text-light/80 text-sm">Available Now</span>
+                  <span className="text-light/80 text-sm font-playfair">Available Now</span>
                 </div>
-                <div className="text-secondary font-semibold">
+                <div className="text-secondary font-semibold font-playfair">
                   ${((reader.pricing || 399) / 100).toFixed(2)}/min
                 </div>
               </div>
@@ -110,7 +110,7 @@ export function ReadersSection() {
         </div>
       ) : (
         <div className="text-center py-8">
-          <p className="text-light/70">No readers online at the moment. Please check back later.</p>
+          <p className="text-light/70 font-playfair">No readers online at the moment. Please check back later.</p>
         </div>
       )}
     </div>
