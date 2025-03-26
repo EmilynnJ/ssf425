@@ -38,10 +38,9 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-primary-dark/80 backdrop-blur-lg border-b border-accent-gold/30">
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
-          {/* Logo with Eye Icon */}
+          {/* Logo */}
           <Link href={PATHS.HOME} className="flex items-center">
-            <EyeIcon />
-            <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent ml-2">SoulSeer</span>
+            <span className="text-3xl md:text-4xl font-['Great_Vibes'] text-accent">SoulSeer</span>
           </Link>
           
           {/* Navigation - Desktop */}
