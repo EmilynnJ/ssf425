@@ -1,8 +1,16 @@
 import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import connectPgSimple from "connect-pg-simple";
+import { db } from "./db";
+import { pool } from "./database";
+import { eq, and, or, desc, isNull, asc, sql } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPgSimple(session);
+
+// Define SessionStore type
+type SessionStore = ReturnType<typeof createMemoryStore> | ReturnType<typeof connectPgSimple>;
 
 export interface IStorage {
   // User
@@ -62,7 +70,7 @@ export interface IStorage {
   markMessageAsRead(id: number): Promise<Message | undefined>;
   
   // Session store for authentication
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
 }
 
 export class MemStorage implements IStorage {
@@ -76,7 +84,7 @@ export class MemStorage implements IStorage {
   private forumComments: Map<number, ForumComment>;
   private messages: Map<number, Message>;
   
-  sessionStore: session.SessionStore;
+  sessionStore: SessionStore;
   
   currentUserId: number;
   currentReadingId: number;
@@ -440,4 +448,306 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  sessionStore: SessionStore;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
+    });
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const now = new Date();
+    const [createdUser] = await db.insert(users).values({
+      ...user,
+      createdAt: now,
+      lastActive: now,
+      isOnline: false,
+      reviewCount: 0
+    }).returning();
+
+    return createdUser;
+  }
+
+  async updateUser(id: number, userData: UserUpdate): Promise<User | undefined> {
+    const lastActive = userData.lastActive || new Date();
+    const [updatedUser] = await db.update(users)
+      .set({ ...userData, lastActive })
+      .where(eq(users.id, id))
+      .returning();
+
+    return updatedUser;
+  }
+
+  async getReaders(): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, "reader"));
+  }
+
+  async getOnlineReaders(): Promise<User[]> {
+    return await db.select().from(users)
+      .where(and(
+        eq(users.role, "reader"),
+        eq(users.isOnline, true)
+      ));
+  }
+
+  // Reading methods
+  async createReading(reading: InsertReading): Promise<Reading> {
+    const [createdReading] = await db.insert(readings).values({
+      ...reading,
+      createdAt: new Date(),
+      completedAt: null
+    }).returning();
+
+    return createdReading;
+  }
+
+  async getReading(id: number): Promise<Reading | undefined> {
+    const [reading] = await db.select().from(readings).where(eq(readings.id, id));
+    return reading;
+  }
+
+  async getReadingsByClient(clientId: number): Promise<Reading[]> {
+    return await db.select().from(readings).where(eq(readings.clientId, clientId));
+  }
+
+  async getReadingsByReader(readerId: number): Promise<Reading[]> {
+    return await db.select().from(readings).where(eq(readings.readerId, readerId));
+  }
+
+  async updateReading(id: number, readingData: Partial<InsertReading>): Promise<Reading | undefined> {
+    const [updatedReading] = await db.update(readings)
+      .set(readingData)
+      .where(eq(readings.id, id))
+      .returning();
+      
+    return updatedReading;
+  }
+
+  // Product methods
+  async createProduct(product: InsertProduct): Promise<Product> {
+    const [createdProduct] = await db.insert(products).values({
+      ...product,
+      createdAt: new Date()
+    }).returning();
+    
+    return createdProduct;
+  }
+
+  async getProduct(id: number): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
+  async getProducts(): Promise<Product[]> {
+    return await db.select().from(products);
+  }
+
+  async getFeaturedProducts(): Promise<Product[]> {
+    return await db.select().from(products).where(eq(products.featured, true));
+  }
+
+  async updateProduct(id: number, productData: Partial<InsertProduct>): Promise<Product | undefined> {
+    const [updatedProduct] = await db.update(products)
+      .set(productData)
+      .where(eq(products.id, id))
+      .returning();
+      
+    return updatedProduct;
+  }
+
+  // Order methods
+  async createOrder(order: InsertOrder): Promise<Order> {
+    const now = new Date();
+    const [createdOrder] = await db.insert(orders).values({
+      ...order,
+      createdAt: now,
+      updatedAt: now
+    }).returning();
+    
+    return createdOrder;
+  }
+
+  async getOrder(id: number): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id));
+    return order;
+  }
+
+  async getOrdersByUser(userId: number): Promise<Order[]> {
+    return await db.select().from(orders).where(eq(orders.userId, userId));
+  }
+
+  async updateOrder(id: number, orderData: Partial<InsertOrder>): Promise<Order | undefined> {
+    const [updatedOrder] = await db.update(orders)
+      .set({ ...orderData, updatedAt: new Date() })
+      .where(eq(orders.id, id))
+      .returning();
+      
+    return updatedOrder;
+  }
+
+  // Order Item methods
+  async createOrderItem(orderItem: InsertOrderItem): Promise<OrderItem> {
+    const [createdOrderItem] = await db.insert(orderItems).values(orderItem).returning();
+    return createdOrderItem;
+  }
+
+  async getOrderItems(orderId: number): Promise<OrderItem[]> {
+    return await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+  }
+
+  // Livestream methods
+  async createLivestream(livestream: InsertLivestream): Promise<Livestream> {
+    const [createdLivestream] = await db.insert(livestreams).values({
+      ...livestream,
+      createdAt: new Date(),
+      startedAt: null,
+      endedAt: null,
+      viewerCount: 0
+    }).returning();
+    
+    return createdLivestream;
+  }
+
+  async getLivestream(id: number): Promise<Livestream | undefined> {
+    const [livestream] = await db.select().from(livestreams).where(eq(livestreams.id, id));
+    return livestream;
+  }
+
+  async getLivestreams(): Promise<Livestream[]> {
+    return await db.select().from(livestreams);
+  }
+
+  async getLivestreamsByUser(userId: number): Promise<Livestream[]> {
+    return await db.select().from(livestreams).where(eq(livestreams.userId, userId));
+  }
+
+  async updateLivestream(id: number, livestreamData: Partial<InsertLivestream>): Promise<Livestream | undefined> {
+    const [updatedLivestream] = await db.update(livestreams)
+      .set(livestreamData)
+      .where(eq(livestreams.id, id))
+      .returning();
+      
+    return updatedLivestream;
+  }
+
+  // Forum Post methods
+  async createForumPost(forumPost: InsertForumPost): Promise<ForumPost> {
+    const now = new Date();
+    const [createdForumPost] = await db.insert(forumPosts).values({
+      ...forumPost,
+      createdAt: now,
+      updatedAt: now,
+      likes: 0,
+      views: 0
+    }).returning();
+    
+    return createdForumPost;
+  }
+
+  async getForumPost(id: number): Promise<ForumPost | undefined> {
+    const [forumPost] = await db.select().from(forumPosts).where(eq(forumPosts.id, id));
+    return forumPost;
+  }
+
+  async getForumPosts(): Promise<ForumPost[]> {
+    return await db.select().from(forumPosts).orderBy(desc(forumPosts.createdAt));
+  }
+
+  async updateForumPost(id: number, forumPostData: Partial<InsertForumPost>): Promise<ForumPost | undefined> {
+    const [updatedForumPost] = await db.update(forumPosts)
+      .set({ ...forumPostData, updatedAt: new Date() })
+      .where(eq(forumPosts.id, id))
+      .returning();
+      
+    return updatedForumPost;
+  }
+
+  // Forum Comment methods
+  async createForumComment(forumComment: InsertForumComment): Promise<ForumComment> {
+    const now = new Date();
+    const [createdForumComment] = await db.insert(forumComments).values({
+      ...forumComment,
+      createdAt: now,
+      updatedAt: now,
+      likes: 0
+    }).returning();
+    
+    return createdForumComment;
+  }
+
+  async getForumCommentsByPost(postId: number): Promise<ForumComment[]> {
+    return await db.select().from(forumComments)
+      .where(eq(forumComments.postId, postId))
+      .orderBy(asc(forumComments.createdAt));
+  }
+
+  // Message methods
+  async createMessage(message: InsertMessage): Promise<Message> {
+    const [createdMessage] = await db.insert(messages).values({
+      ...message,
+      createdAt: new Date(),
+      readAt: null
+    }).returning();
+    
+    return createdMessage;
+  }
+
+  async getMessagesByUsers(userId1: number, userId2: number): Promise<Message[]> {
+    return await db.select().from(messages).where(
+      or(
+        and(
+          eq(messages.senderId, userId1),
+          eq(messages.receiverId, userId2)
+        ),
+        and(
+          eq(messages.senderId, userId2),
+          eq(messages.receiverId, userId1)
+        )
+      )
+    ).orderBy(asc(messages.createdAt));
+  }
+
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    const result = await db.select({ count: db.fn.count() })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.receiverId, userId),
+          isNull(messages.readAt)
+        )
+      );
+    
+    return Number(result[0]?.count || 0);
+  }
+
+  async markMessageAsRead(id: number): Promise<Message | undefined> {
+    const [updatedMessage] = await db.update(messages)
+      .set({ readAt: new Date() })
+      .where(eq(messages.id, id))
+      .returning();
+      
+    return updatedMessage;
+  }
+}
+
+// Use DatabaseStorage instead of MemStorage for production
+export const storage = new DatabaseStorage();

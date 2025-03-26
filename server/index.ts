@@ -42,6 +42,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  try {
+    // Initialize database before registering routes
+    await initializeDatabase();
+    log('Database initialized successfully', 'database');
+  } catch (error) {
+    log(`Failed to initialize database: ${error}`, 'database');
+    // Continue with server startup even if database initialization fails
+  }
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

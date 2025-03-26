@@ -1,6 +1,9 @@
-import { Pool, PoolClient } from 'pg';
+import pg from 'pg';
 import { config } from 'dotenv';
 import { log } from './vite';
+
+const { Pool } = pg;
+type PoolClient = pg.PoolClient;
 
 // Load environment variables
 config();
