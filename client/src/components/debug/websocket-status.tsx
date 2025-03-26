@@ -1,11 +1,11 @@
-import { useWebSocket } from "@/hooks/use-websocket";
+import { useWebSocketContext } from "@/hooks/websocket-provider";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Radio, Sparkles, WifiOff, AlertCircle } from "lucide-react";
+import { Loader2, Radio, WifiOff, AlertCircle } from "lucide-react";
 
 export function WebSocketStatus() {
-  const { status, sendMessage, lastMessage, reconnect } = useWebSocket();
+  const { status, sendMessage, lastMessage, reconnect } = useWebSocketContext();
   const [pingTime, setPingTime] = useState<number | null>(null);
   const [isPinging, setIsPinging] = useState(false);
 
