@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
+import { WebSocketProvider } from "@/hooks/websocket-provider";
 import HomePage from "@/pages/home-page";
 import AboutPage from "@/pages/about-page";
 import AuthPage from "@/pages/auth-page";
