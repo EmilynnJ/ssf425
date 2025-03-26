@@ -107,11 +107,9 @@ export function ReadersSection() {
             <p className="text-light/80 font-playfair text-lg mb-2">No readers are online at the moment.</p>
             <p className="text-light/60 font-playfair mb-4">Check back later or browse all our talented psychics.</p>
             <Link href={PATHS.READERS}>
-              <Link href={PATHS.READERS}>
-                <button className="text-accent underline hover:text-accent-dark transition-colors font-playfair">
-                  View All Readers
-                </button>
-              </Link>
+              <button className="text-accent underline hover:text-accent-dark transition-colors font-playfair">
+                View All Readers
+              </button>
             </Link>
           </GlowCard>
         </div>

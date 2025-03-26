@@ -137,8 +137,10 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router />
-          <Toaster />
+          <WebSocketProvider>
+            <Router />
+            <Toaster />
+          </WebSocketProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
