@@ -44,7 +44,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <GlowCard className="p-6">
-      <h2 className="text-2xl font-cinzel text-secondary text-center mb-6">Welcome Back</h2>
+      <h2 className="text-3xl font-alex text-secondary text-center mb-6">Welcome Back</h2>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

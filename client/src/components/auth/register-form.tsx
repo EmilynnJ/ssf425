@@ -61,7 +61,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
 
   return (
     <GlowCard className="p-6">
-      <h2 className="text-2xl font-cinzel text-secondary text-center mb-6">Join SoulSeer</h2>
+      <h2 className="text-3xl font-alex text-secondary text-center mb-6">Join SoulSeer</h2>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -75,7 +75,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                   <Input
                     placeholder="Enter your full name"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
@@ -88,12 +88,12 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             name="username"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Username</FormLabel>
+                <FormLabel className="text-light font-playfair">Username</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Choose a unique username"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
@@ -106,7 +106,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Email</FormLabel>
+                <FormLabel className="text-light font-playfair">Email</FormLabel>
                 <FormControl>
                   <Input
                     type="email"
@@ -125,7 +125,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">Password</FormLabel>
+                <FormLabel className="text-light font-playfair">Password</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
@@ -144,7 +144,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
             name="role"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-light">I am a</FormLabel>
+                <FormLabel className="text-light font-playfair">I am a</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
                     <SelectTrigger className="bg-primary-light/30 border-accent-gold/30">
