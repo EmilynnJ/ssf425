@@ -11,8 +11,8 @@ export default function HomePage() {
       <StarField />
       <div className="container mx-auto px-4">
         <HeroSection />
-        <FeaturesSection />
         <ReadersSection />
+        <FeaturesSection />
         <LiveSection />
         <ShopSection />
       </div>
