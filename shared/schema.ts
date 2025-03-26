@@ -147,6 +147,10 @@ export const insertMessageSchema = createInsertSchema(messages)
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type UserUpdate = Partial<InsertUser> & {
+  isOnline?: boolean;
+  lastActive?: Date;
+};
 
 export type InsertReading = z.infer<typeof insertReadingSchema>;
 export type Reading = typeof readings.$inferSelect;

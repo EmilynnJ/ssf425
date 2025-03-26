@@ -158,11 +158,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`WebSocket client ${clientId} disconnected. Code: ${code}, Reason: ${reason}`);
       
       // If user is a reader, update their status and broadcast offline status
-      if (userId) {
+      if (userId !== null) {
         storage.getUser(userId).then(user => {
           if (user && user.role === 'reader') {
-            storage.updateUser(userId, { isOnline: false });
-            broadcastReaderActivity(userId, 'offline');
+            storage.updateUser(userId as number, { isOnline: false });
+            broadcastReaderActivity(userId as number, 'offline');
           }
         }).catch(err => {
           console.error('Error updating reader status on disconnect:', err);
