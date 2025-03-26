@@ -112,7 +112,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                     type="email"
                     placeholder="Enter your email address"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
@@ -131,7 +131,7 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                     type="password"
                     placeholder="Create a secure password"
                     {...field}
-                    className="bg-primary-light/30 border-accent-gold/30"
+                    className="bg-primary-light/30 border-accent-gold/30 font-playfair"
                   />
                 </FormControl>
                 <FormMessage />
@@ -147,13 +147,13 @@ export function RegisterForm({ onSuccess }: RegisterFormProps) {
                 <FormLabel className="text-light font-playfair">I am a</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="bg-primary-light/30 border-accent-gold/30">
+                    <SelectTrigger className="bg-primary-light/30 border-accent-gold/30 font-playfair">
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="client">Client seeking guidance</SelectItem>
-                    <SelectItem value="reader">Psychic reader offering services</SelectItem>
+                    <SelectItem value="client" className="font-playfair">Client seeking guidance</SelectItem>
+                    <SelectItem value="reader" className="font-playfair">Psychic reader offering services</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
