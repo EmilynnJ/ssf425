@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
+import { UserUpdate } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -107,7 +108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (userId !== null) {
             storage.getUser(userId).then(user => {
               if (user && user.role === 'reader') {
-                storage.updateUser(userId as number, { isOnline: true });
+                const update: UserUpdate = { isOnline: true };
+                storage.updateUser(userId as number, update);
                 broadcastReaderActivity(userId as number, 'online');
               }
             }).catch(err => {
@@ -161,7 +163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (userId !== null) {
         storage.getUser(userId).then(user => {
           if (user && user.role === 'reader') {
-            storage.updateUser(userId as number, { isOnline: false });
+            const update: UserUpdate = { isOnline: false };
+            storage.updateUser(userId as number, update);
             broadcastReaderActivity(userId as number, 'offline');
           }
         }).catch(err => {
