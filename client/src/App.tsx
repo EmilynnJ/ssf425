@@ -104,8 +104,8 @@ function Router() {
   return (
     <Layout>
       <Switch>
-        {/* Home routes */}
-        <ProtectedRoute path="/" component={HomePage} />
+        {/* Public home routes */}
+        <Route path="/" component={HomePage} />
         <Route path="/about" component={AboutPage} />
         <Route path="/auth" component={AuthPage} />
         

@@ -19,8 +19,10 @@ export default function AuthPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      <div className="min-h-screen flex items-center justify-center cosmic-bg">
+        <div className="p-8 rounded-lg bg-dark/30 backdrop-blur-sm">
+          <Loader2 className="h-10 w-10 animate-spin text-accent" />
+        </div>
       </div>
     );
   }
