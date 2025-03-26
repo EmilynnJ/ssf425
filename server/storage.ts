@@ -157,7 +157,8 @@ export class MemStorage implements IStorage {
       specialties: insertUser.specialties || null,
       pricing: insertUser.pricing || null,
       rating: insertUser.rating || null,
-      verified: insertUser.verified || false
+      verified: insertUser.verified || false,
+      role: insertUser.role || "client"
     };
     this.users.set(id, user);
     return user;
@@ -192,7 +193,11 @@ export class MemStorage implements IStorage {
       ...insertReading,
       id,
       createdAt: new Date(),
-      completedAt: null
+      completedAt: null,
+      rating: null,
+      review: null,
+      scheduledFor: insertReading.scheduledFor ?? null,
+      notes: insertReading.notes ?? null
     };
     this.readings.set(id, reading);
     return reading;
@@ -229,7 +234,8 @@ export class MemStorage implements IStorage {
     const product: Product = {
       ...insertProduct,
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      featured: insertProduct.featured ?? null
     };
     this.products.set(id, product);
     return product;
@@ -320,7 +326,8 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       startedAt: null,
       endedAt: null,
-      viewerCount: 0
+      viewerCount: 0,
+      scheduledFor: insertLivestream.scheduledFor ?? null
     };
     this.livestreams.set(id, livestream);
     return livestream;
@@ -415,7 +422,9 @@ export class MemStorage implements IStorage {
       ...insertMessage,
       id,
       createdAt: new Date(),
-      readAt: null
+      readAt: null,
+      price: insertMessage.price ?? null,
+      isPaid: insertMessage.isPaid ?? null
     };
     this.messages.set(id, message);
     return message;
@@ -520,7 +529,10 @@ export class DatabaseStorage implements IStorage {
     const [createdReading] = await db.insert(readings).values({
       ...reading,
       createdAt: new Date(),
-      completedAt: null
+      completedAt: null,
+      rating: null,
+      review: null,
+      scheduledFor: reading.scheduledFor ?? null
     }).returning();
 
     return createdReading;
@@ -627,7 +639,8 @@ export class DatabaseStorage implements IStorage {
       createdAt: new Date(),
       startedAt: null,
       endedAt: null,
-      viewerCount: 0
+      viewerCount: 0,
+      scheduledFor: livestream.scheduledFor ?? null
     }).returning();
     
     return createdLivestream;
@@ -711,7 +724,9 @@ export class DatabaseStorage implements IStorage {
     const [createdMessage] = await db.insert(messages).values({
       ...message,
       createdAt: new Date(),
-      readAt: null
+      readAt: null,
+      price: message.price ?? null,
+      isPaid: message.isPaid ?? null
     }).returning();
     
     return createdMessage;
