@@ -43,8 +43,8 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10, 2) NOT NULL,
   image_url VARCHAR(255),
   category VARCHAR(50),
-  is_featured BOOLEAN DEFAULT FALSE,
-  in_stock BOOLEAN DEFAULT TRUE,
+  featured BOOLEAN DEFAULT FALSE,
+  stock INTEGER DEFAULT 100,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -114,9 +114,9 @@ CREATE TABLE IF NOT EXISTS forum_comments (
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY,
   sender_id INTEGER NOT NULL REFERENCES users(id),
-  recipient_id INTEGER NOT NULL REFERENCES users(id),
+  receiver_id INTEGER NOT NULL REFERENCES users(id),
   content TEXT NOT NULL,
-  is_read BOOLEAN DEFAULT FALSE,
+  read_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -138,7 +138,7 @@ CREATE INDEX idx_readings_reader_id ON readings(reader_id);
 CREATE INDEX idx_readings_client_id ON readings(client_id);
 CREATE INDEX idx_readings_status ON readings(status);
 CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_products_is_featured ON products(is_featured);
+CREATE INDEX idx_products_featured ON products(featured);
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_livestreams_user_id ON livestreams(user_id);
@@ -147,5 +147,5 @@ CREATE INDEX idx_forum_posts_user_id ON forum_posts(user_id);
 CREATE INDEX idx_forum_posts_category ON forum_posts(category);
 CREATE INDEX idx_forum_comments_post_id ON forum_comments(post_id);
 CREATE INDEX idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX idx_messages_recipient_id ON messages(recipient_id);
-CREATE INDEX idx_messages_is_read ON messages(is_read);
+CREATE INDEX idx_messages_receiver_id ON messages(receiver_id);
+CREATE INDEX idx_messages_read_at ON messages(read_at);
