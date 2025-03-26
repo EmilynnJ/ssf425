@@ -25,8 +25,8 @@ export function ShopSection() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-cinzel text-secondary">Featured Products</h2>
-        <Link href={PATHS.SHOP} className="text-accent hover:text-accent-dark transition duration-300 flex items-center">
+        <h2 className="text-3xl font-alex-brush text-secondary">Featured Products</h2>
+        <Link href={PATHS.SHOP} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair">
           Visit Shop
           <svg
             className="ml-1 h-4 w-4"
@@ -72,7 +72,7 @@ export function ShopSection() {
               
               <div className="p-4">
                 <h3 className="text-lg font-cinzel text-secondary mb-1">{product.name}</h3>
-                <p className="text-accent font-semibold mb-3">${(product.price / 100).toFixed(2)}</p>
+                <p className="text-accent font-semibold mb-3 font-playfair">${(product.price / 100).toFixed(2)}</p>
                 
                 <CelestialButton
                   variant="gold"
@@ -88,7 +88,7 @@ export function ShopSection() {
         </div>
       ) : (
         <div className="text-center py-8">
-          <p className="text-light/70">No featured products available right now.</p>
+          <p className="text-light/70 font-playfair">No featured products available right now.</p>
           
           <Link href={PATHS.SHOP} className="mt-4 inline-block">
             <CelestialButton variant="secondary">

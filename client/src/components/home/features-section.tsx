@@ -55,7 +55,7 @@ export function FeaturesSection() {
             <h3 className="text-2xl font-cinzel text-secondary">{feature.title}</h3>
           </div>
           
-          <p className="text-light/80 mb-4">{feature.description}</p>
+          <p className="text-light/80 mb-4 font-playfair">{feature.description}</p>
           
           <Link href={feature.link}>
             <span className="inline-flex items-center text-accent hover:text-accent-dark transition duration-300">

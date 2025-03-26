@@ -17,8 +17,8 @@ export function LiveSection() {
   return (
     <div className="mb-20">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-cinzel text-secondary">Live Now</h2>
-        <Link href={PATHS.LIVE} className="text-accent hover:text-accent-dark transition duration-300 flex items-center">
+        <h2 className="text-3xl font-alex-brush text-secondary">Live Now</h2>
+        <Link href={PATHS.LIVE} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair">
           View All
           <svg
             className="ml-1 h-4 w-4"
@@ -74,7 +74,7 @@ export function LiveSection() {
               
               <div className="p-4">
                 <h3 className="text-lg font-cinzel text-secondary mb-1">{livestream.title}</h3>
-                <p className="text-accent text-sm mb-2">with {livestream.userId}</p>
+                <p className="text-accent text-sm mb-2 font-playfair">with {livestream.userId}</p>
                 
                 <Link href={`${PATHS.LIVE}/${livestream.id}`}>
                   <CelestialButton
@@ -91,7 +91,7 @@ export function LiveSection() {
         </div>
       ) : (
         <div className="text-center py-8">
-          <p className="text-light/70">No live streams at the moment. Check back later or browse scheduled events.</p>
+          <p className="text-light/70 font-playfair">No live streams at the moment. Check back later or browse scheduled events.</p>
           
           <Link href={PATHS.LIVE} className="mt-4 inline-block">
             <CelestialButton variant="secondary">
