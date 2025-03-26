@@ -16,7 +16,7 @@ export function ReadersSection() {
   return (
     <div className="mb-20">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-cinzel text-secondary">Online Now</h2>
+        <h2 className="text-4xl font-alex-brush text-secondary">Online Now</h2>
         <Link href={PATHS.READERS} className="text-accent hover:text-accent-dark transition duration-300 flex items-center">
           View All
           <svg
@@ -70,8 +70,8 @@ export function ReadersSection() {
                 
                 <div>
                   <h3 className="text-xl font-cinzel text-secondary">{reader.fullName}</h3>
-                  <p className="text-accent text-sm">
-                    {reader.specialties?.join(" & ") || "Psychic Reading"}
+                  <p className="text-accent text-sm font-playfair">
+                    {Array.isArray(reader.specialties) ? reader.specialties.join(" & ") : "Psychic Reading"}
                   </p>
                   <div className="flex items-center mt-1">
                     <div className="flex">
@@ -82,7 +82,7 @@ export function ReadersSection() {
                         <StarHalf className="text-secondary text-sm" />
                       )}
                     </div>
-                    <span className="text-light/60 text-xs ml-2">{reader.rating}</span>
+                    <span className="text-light/60 text-xs ml-2 font-playfair">{reader.rating}</span>
                   </div>
                 </div>
               </div>

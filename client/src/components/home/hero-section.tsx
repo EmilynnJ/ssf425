@@ -8,12 +8,12 @@ export function HeroSection() {
     <div className="flex flex-col items-center text-center mb-20 relative">
       <StarField />
       
-      <h1 className="text-5xl md:text-6xl font-cinzel mb-4 z-10">
+      <h1 className="text-6xl md:text-7xl font-alex-brush mb-4 z-10">
         <span className="text-accent">Soul</span>
         <span className="text-secondary">Seer</span>
       </h1>
       
-      <p className="text-xl text-light/80 mb-8 max-w-2xl z-10">A Community of Gifted Psychics</p>
+      <p className="text-xl font-playfair text-light/80 mb-8 max-w-2xl z-10">A Community of Gifted Psychics</p>
       
       <div className="flex flex-wrap justify-center gap-4 z-10">
         <Link href={PATHS.READERS}>
