@@ -11,11 +11,12 @@ export const users = pgTable("users", {
   profileImage: text("profile_image"),
   role: text("role", { enum: ["client", "reader", "admin"] }).notNull().default("client"),
   bio: text("bio"),
-  specialties: text("specialties", { array: true }),
+  specialties: text("specialties").array(),
   pricing: integer("pricing"),
   rating: integer("rating"),
   reviewCount: integer("review_count").default(0),
   verified: boolean("verified").default(false),
+  karmaPoints: integer("karma_points").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   lastActive: timestamp("last_active").defaultNow(),
   isOnline: boolean("is_online").default(false),
@@ -115,6 +116,17 @@ export const forumComments = pgTable("forum_comments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const karmaTransactions = pgTable("karma_transactions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  amount: integer("amount").notNull(), // Can be positive (earned) or negative (spent)
+  type: text("type", { enum: ["reading_completed", "reading_review", "forum_post", "forum_comment", "login_streak", "product_purchase", "admin_award", "karma_spent"] }).notNull(),
+  description: text("description").notNull(),
+  relatedEntityId: integer("related_entity_id"), // ID of the related reading, forum post, etc. if applicable
+  relatedEntityType: text("related_entity_type", { enum: ["reading", "forum_post", "forum_comment", "order", "livestream", "login"] }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert Schemas
 
 export const insertUserSchema = createInsertSchema(users)
@@ -143,6 +155,9 @@ export const insertForumCommentSchema = createInsertSchema(forumComments)
 
 export const insertMessageSchema = createInsertSchema(messages)
   .omit({ id: true, createdAt: true, readAt: true });
+  
+export const insertKarmaTransactionSchema = createInsertSchema(karmaTransactions)
+  .omit({ id: true, createdAt: true });
 
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -150,6 +165,7 @@ export type User = typeof users.$inferSelect;
 export type UserUpdate = Partial<InsertUser> & {
   isOnline?: boolean;
   lastActive?: Date;
+  karmaPoints?: number;
 };
 
 export type InsertReading = z.infer<typeof insertReadingSchema>;
@@ -175,3 +191,6 @@ export type ForumComment = typeof forumComments.$inferSelect;
 
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+export type InsertKarmaTransaction = z.infer<typeof insertKarmaTransactionSchema>;
+export type KarmaTransaction = typeof karmaTransactions.$inferSelect;

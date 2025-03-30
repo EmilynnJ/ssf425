@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage } from "@shared/schema";
+import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage, karmaTransactions, type KarmaTransaction, type InsertKarmaTransaction } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
@@ -69,6 +69,26 @@ export interface IStorage {
   getUnreadMessageCount(userId: number): Promise<number>;
   markMessageAsRead(id: number): Promise<Message | undefined>;
   
+  // Karma Points
+  createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction>;
+  getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]>;
+  getUserKarmaBalance(userId: number): Promise<number>;
+  addKarmaPoints(
+    userId: number, 
+    amount: number, 
+    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User>;
+  spendKarmaPoints(
+    userId: number, 
+    amount: number, 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User>;
+  
   // Session store for authentication
   sessionStore: SessionStore;
 }
@@ -83,6 +103,7 @@ export class MemStorage implements IStorage {
   private forumPosts: Map<number, ForumPost>;
   private forumComments: Map<number, ForumComment>;
   private messages: Map<number, Message>;
+  private karmaTransactions: Map<number, KarmaTransaction>;
   
   sessionStore: SessionStore;
   
@@ -95,6 +116,7 @@ export class MemStorage implements IStorage {
   currentForumPostId: number;
   currentForumCommentId: number;
   currentMessageId: number;
+  currentKarmaTransactionId: number;
 
   constructor() {
     this.users = new Map();
@@ -106,6 +128,7 @@ export class MemStorage implements IStorage {
     this.forumPosts = new Map();
     this.forumComments = new Map();
     this.messages = new Map();
+    this.karmaTransactions = new Map();
     
     this.currentUserId = 1;
     this.currentReadingId = 1;
@@ -116,6 +139,7 @@ export class MemStorage implements IStorage {
     this.currentForumPostId = 1;
     this.currentForumCommentId = 1;
     this.currentMessageId = 1;
+    this.currentKarmaTransactionId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
@@ -152,6 +176,7 @@ export class MemStorage implements IStorage {
       lastActive: now, 
       isOnline: false,
       reviewCount: 0,
+      karmaPoints: 0,
       profileImage: insertUser.profileImage || null,
       bio: insertUser.bio || null,
       specialties: insertUser.specialties || null,
@@ -457,6 +482,106 @@ export class MemStorage implements IStorage {
     return updatedMessage;
   }
   
+  // Karma Points methods
+  async createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction> {
+    const id = this.currentKarmaTransactionId++;
+    const karmaTransaction: KarmaTransaction = {
+      ...transaction,
+      id,
+      createdAt: new Date()
+    };
+    this.karmaTransactions.set(id, karmaTransaction);
+    return karmaTransaction;
+  }
+  
+  async getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]> {
+    return Array.from(this.karmaTransactions.values())
+      .filter(transaction => transaction.userId === userId)
+      .sort((a, b) => {
+        // Handle null createdAt (shouldn't happen, but TypeScript needs it)
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
+  }
+  
+  async getUserKarmaBalance(userId: number): Promise<number> {
+    const transactions = await this.getUserKarmaTransactions(userId);
+    return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+  }
+  
+  async addKarmaPoints(
+    userId: number, 
+    amount: number, 
+    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User> {
+    // Create the transaction
+    await this.createKarmaTransaction({
+      userId,
+      amount,
+      type,
+      description,
+      relatedEntityId: relatedEntityId || null,
+      relatedEntityType: relatedEntityType || null
+    });
+    
+    // Update the user's karma balance
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    const currentKarma = user.karmaPoints || 0;
+    const updatedUser = await this.updateUser(userId, { karmaPoints: currentKarma + amount });
+    
+    if (!updatedUser) {
+      throw new Error(`Failed to update karma points for user ${userId}`);
+    }
+    
+    return updatedUser;
+  }
+  
+  async spendKarmaPoints(
+    userId: number, 
+    amount: number, 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User> {
+    // Check if the user has enough karma
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    const currentKarma = user.karmaPoints || 0;
+    if (currentKarma < amount) {
+      throw new Error(`Not enough karma points. Required: ${amount}, Available: ${currentKarma}`);
+    }
+    
+    // Create the transaction (with negative amount)
+    await this.createKarmaTransaction({
+      userId,
+      amount: -amount,
+      type: 'karma_spent',
+      description,
+      relatedEntityId: relatedEntityId || null,
+      relatedEntityType: relatedEntityType || null
+    });
+    
+    // Update the user's karma balance
+    const updatedUser = await this.updateUser(userId, { karmaPoints: currentKarma - amount });
+    
+    if (!updatedUser) {
+      throw new Error(`Failed to update karma points for user ${userId}`);
+    }
+    
+    return updatedUser;
+  }
+  
   // Seed data for demonstration
   private seedData() {
     // Seeding is only for development and is handled elsewhere
@@ -496,7 +621,8 @@ export class DatabaseStorage implements IStorage {
       createdAt: now,
       lastActive: now,
       isOnline: false,
-      reviewCount: 0
+      reviewCount: 0,
+      karmaPoints: 0
     }).returning();
 
     return createdUser;
@@ -768,6 +894,109 @@ export class DatabaseStorage implements IStorage {
       .returning();
       
     return updatedMessage;
+  }
+  
+  // Karma Points methods
+  async createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction> {
+    const [createdTransaction] = await db.insert(karmaTransactions).values({
+      ...transaction,
+      createdAt: new Date()
+    }).returning();
+    
+    return createdTransaction;
+  }
+  
+  async getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]> {
+    return await db.select().from(karmaTransactions)
+      .where(eq(karmaTransactions.userId, userId))
+      .orderBy(desc(karmaTransactions.createdAt));
+  }
+  
+  async getUserKarmaBalance(userId: number): Promise<number> {
+    const result = await db.select({ total: sql`SUM(amount)` })
+      .from(karmaTransactions)
+      .where(eq(karmaTransactions.userId, userId));
+      
+    return Number(result[0]?.total || 0);
+  }
+  
+  async addKarmaPoints(
+    userId: number, 
+    amount: number, 
+    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User> {
+    // Create the transaction
+    await this.createKarmaTransaction({
+      userId,
+      amount,
+      type,
+      description,
+      relatedEntityId: relatedEntityId || null,
+      relatedEntityType: relatedEntityType || null
+    });
+    
+    // Get the current user
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    // Update the user's karma points
+    const currentKarma = user.karmaPoints || 0;
+    const [updatedUser] = await db.update(users)
+      .set({ karmaPoints: currentKarma + amount })
+      .where(eq(users.id, userId))
+      .returning();
+      
+    if (!updatedUser) {
+      throw new Error(`Failed to update karma points for user ${userId}`);
+    }
+    
+    return updatedUser;
+  }
+  
+  async spendKarmaPoints(
+    userId: number, 
+    amount: number, 
+    description: string, 
+    relatedEntityId?: number | null, 
+    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
+  ): Promise<User> {
+    // Check if the user has enough karma
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error(`User with ID ${userId} not found`);
+    }
+    
+    const currentKarma = user.karmaPoints || 0;
+    if (currentKarma < amount) {
+      throw new Error(`Not enough karma points. Required: ${amount}, Available: ${currentKarma}`);
+    }
+    
+    // Create the transaction (with negative amount)
+    await this.createKarmaTransaction({
+      userId,
+      amount: -amount,
+      type: 'karma_spent',
+      description,
+      relatedEntityId: relatedEntityId || null,
+      relatedEntityType: relatedEntityType || null
+    });
+    
+    // Update the user's karma balance
+    const [updatedUser] = await db.update(users)
+      .set({ karmaPoints: currentKarma - amount })
+      .where(eq(users.id, userId))
+      .returning();
+      
+    if (!updatedUser) {
+      throw new Error(`Failed to update karma points for user ${userId}`);
+    }
+    
+    return updatedUser;
   }
 }
 
