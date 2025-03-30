@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
@@ -10,12 +10,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Clock, MessageCircle, MessageSquare, Video, Phone } from 'lucide-react';
+import { Clock, MessageCircle, MessageSquare, Video, Phone, Mic, MicOff } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function ReadingSessionPage() {
   const [_, setLocation] = useLocation();
-  const [match, params] = useRoute('/readings/:id');
+  const [match, params] = useRoute('/reading-session/:id');
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -23,6 +23,9 @@ export default function ReadingSessionPage() {
   const [totalCost, setTotalCost] = useState(0);
   const [chatMessages, setChatMessages] = useState<{ sender: string; message: string; timestamp: number }[]>([]);
   const [messageInput, setMessageInput] = useState('');
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Get reading session data
   const { data: reading, isLoading } = useQuery<Reading>({
@@ -75,6 +78,30 @@ export default function ReadingSessionPage() {
     }
   });
   
+  // Start the timer for chat and voice sessions
+  useEffect(() => {
+    if (!reading || !user || reading.type === 'video') return;
+    
+    // Only start the timer if the session is in progress and hasn't already started
+    if (reading.status === 'in_progress' && !sessionStarted) {
+      // Start the timer for chat and voice sessions
+      setSessionStarted(true);
+      
+      timerRef.current = setInterval(() => {
+        setElapsedTime(prev => {
+          const newSeconds = prev + 1;
+          return newSeconds;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [reading, user, sessionStarted]);
+
   // Listen for WebSocket messages for the chat
   useEffect(() => {
     if (!reading || !user) return;
@@ -93,13 +120,18 @@ export default function ReadingSessionPage() {
           message: data.message,
           timestamp: data.timestamp
         }]);
+        
+        // Start the timer on first message if not already started
+        if (!sessionStarted && reading.type === 'chat') {
+          setSessionStarted(true);
+        }
       }
     });
     
     return () => {
       socket.close();
     };
-  }, [reading, user]);
+  }, [reading, user, sessionStarted]);
   
   // Update total cost whenever elapsed time changes
   useEffect(() => {
@@ -152,8 +184,8 @@ export default function ReadingSessionPage() {
     <div className="container mx-auto py-8 cosmic-bg min-h-screen">
       <Card className="max-w-4xl mx-auto">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <span className="mb-2 sm:mb-0">
               {reading.type.charAt(0).toUpperCase() + reading.type.slice(1)} Reading Session
             </span>
             <div className="flex items-center gap-2 text-base font-normal">
@@ -210,8 +242,8 @@ export default function ReadingSessionPage() {
                     placeholder="Type your message..."
                     className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
                   />
-                  <Button type="submit" disabled={sendMessageMutation.isPending}>
-                    <MessageCircle className="h-4 w-4 mr-2" />
+                  <Button type="submit" disabled={sendMessageMutation.isPending} className="whitespace-nowrap">
+                    <MessageCircle className="h-4 w-4 mr-2 sm:inline hidden" />
                     Send
                   </Button>
                 </form>
@@ -237,18 +269,63 @@ export default function ReadingSessionPage() {
                 <div className="text-center">
                   <Phone className="h-24 w-24 mx-auto text-primary animate-pulse" />
                   <h3 className="mt-4 text-lg font-medium">Voice Call in Progress</h3>
-                  <p className="text-muted-foreground">Your voice call is active</p>
+                  <p className="text-muted-foreground mb-6">Your voice call is active</p>
+                  
+                  <div className="flex flex-col gap-4">
+                    {!sessionStarted ? (
+                      <Button 
+                        onClick={() => setSessionStarted(true)} 
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Start Voice Session
+                      </Button>
+                    ) : (
+                      <div className="flex items-center justify-center gap-4">
+                        <div className="text-2xl font-semibold">
+                          {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                        </div>
+                        
+                        <div className="text-lg font-medium">
+                          {formatCost(totalCost)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-4 mt-2">
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="w-12 h-12 rounded-full"
+                      >
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                      
+                      <Button 
+                        variant="destructive" 
+                        size="icon"
+                        className="w-12 h-12 rounded-full"
+                        onClick={handleEndReading}
+                      >
+                        <Phone className="h-5 w-5 rotate-135" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             )}
           </Tabs>
         </CardContent>
         
-        <CardFooter className="flex justify-between">
+        <CardFooter className="flex flex-col sm:flex-row gap-3 sm:justify-between">
           <div className="text-sm text-muted-foreground">
             {reading.pricePerMinute ? `Rate: ${formatCost(reading.pricePerMinute)}/min` : 'Rate not set'}
           </div>
-          <Button variant="destructive" onClick={handleEndReading} disabled={endReadingMutation.isPending}>
+          <Button 
+            variant="destructive" 
+            onClick={handleEndReading} 
+            disabled={endReadingMutation.isPending}
+            className="w-full sm:w-auto"
+          >
             End Reading Session
           </Button>
         </CardFooter>
