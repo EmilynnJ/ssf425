@@ -88,6 +88,49 @@ export async function runMigrations() {
   }
 }
 
+// Run a specific migration manually
+export async function runMigration(migrationName: string, migrationSql: string) {
+  try {
+    // Create migrations table if it doesn't exist
+    await query(createMigrationsTableQuery);
+    log('Migrations table created or verified', 'database');
+
+    // Check if migration has been applied
+    const appliedMigrations = await query(getAppliedMigrationsQuery);
+    const appliedMigrationNames = appliedMigrations.rows.map(row => row.name);
+
+    if (appliedMigrationNames.includes(migrationName)) {
+      log(`Migration ${migrationName} already applied, skipping`, 'database');
+      return;
+    }
+
+    // Begin a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Apply the migration
+      log(`Applying migration: ${migrationName}`, 'database');
+      await client.query(migrationSql);
+      await client.query(insertMigrationQuery, [migrationName]);
+      log(`Successfully applied migration: ${migrationName}`, 'database');
+
+      // Commit transaction
+      await client.query('COMMIT');
+    } catch (error) {
+      // Rollback transaction on error
+      await client.query('ROLLBACK');
+      log(`Error applying migration ${migrationName}: ${error}`, 'database');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    log(`Migration error: ${error}`, 'database');
+    throw error;
+  }
+}
+
 // Export a function to run migrations when server starts
 export async function initializeDatabase() {
   try {
