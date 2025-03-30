@@ -23,13 +23,13 @@ export function ShopSection() {
   };
   
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-alex-brush text-secondary">Featured Products</h2>
-        <Link href={PATHS.SHOP} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair">
+    <div className="mb-14">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl md:text-3xl font-alex-brush text-secondary">Featured Products</h2>
+        <Link href={PATHS.SHOP} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair text-sm">
           Visit Shop
           <svg
-            className="ml-1 h-4 w-4"
+            className="ml-1 h-3 w-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -46,23 +46,23 @@ export function ShopSection() {
       </div>
       
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, index) => (
-            <GlowCard key={index} className="p-0 rounded-2xl overflow-hidden">
-              <Skeleton className="h-48 w-full" />
-              <div className="p-4">
-                <Skeleton className="h-5 w-3/4 mb-1" />
-                <Skeleton className="h-4 w-1/4 mb-3" />
-                <Skeleton className="h-10 w-full rounded-full" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[...Array(6)].map((_, index) => (
+            <GlowCard key={index} className="p-0 rounded-lg overflow-hidden">
+              <Skeleton className="h-28 w-full" />
+              <div className="p-2">
+                <Skeleton className="h-3 w-3/4 mb-1" />
+                <Skeleton className="h-3 w-1/4 mb-2" />
+                <Skeleton className="h-7 w-full rounded-full" />
               </div>
             </GlowCard>
           ))}
         </div>
       ) : products && products.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.slice(0, 4).map((product) => (
-            <GlowCard key={product.id} className="rounded-2xl overflow-hidden p-0">
-              <div className="h-48 overflow-hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {products.slice(0, 6).map((product) => (
+            <GlowCard key={product.id} className="rounded-lg overflow-hidden p-0">
+              <div className="h-28 overflow-hidden">
                 <img
                   src={product.imageUrl}
                   alt={product.name}
@@ -70,16 +70,17 @@ export function ShopSection() {
                 />
               </div>
               
-              <div className="p-4">
-                <h3 className="text-lg font-cinzel text-secondary mb-1">{product.name}</h3>
-                <p className="text-accent font-semibold mb-3 font-playfair">${(product.price / 100).toFixed(2)}</p>
+              <div className="p-2">
+                <h3 className="text-sm font-cinzel text-secondary truncate">{product.name}</h3>
+                <p className="text-accent font-semibold mb-2 text-xs font-playfair">${(product.price / 100).toFixed(2)}</p>
                 
                 <CelestialButton
                   variant="gold"
-                  className="w-full text-primary-dark"
+                  size="sm"
+                  className="w-full text-primary-dark text-xs py-1"
                   onClick={() => handleAddToCart(product)}
                 >
-                  <ShoppingCart className="mr-2 h-4 w-4" />
+                  <ShoppingCart className="mr-1 h-3 w-3" />
                   Add to Cart
                 </CelestialButton>
               </div>

@@ -28,10 +28,10 @@ export function ReaderCard({ reader }: ReaderCardProps) {
     return [];
   })();
   return (
-    <GlowCard className="p-6 flex flex-col">
-      <div className="relative mb-4">
+    <GlowCard className="p-4 flex flex-col h-full">
+      <div className="relative mb-3">
         {/* Profile image */}
-        <div className="w-full aspect-square rounded-lg overflow-hidden mb-3 bg-primary-light/20">
+        <div className="w-full aspect-square rounded-lg overflow-hidden mb-2 bg-primary-light/20 max-h-32">
           {profileImage && (
             <img 
               src={profileImage} 
@@ -42,66 +42,60 @@ export function ReaderCard({ reader }: ReaderCardProps) {
         </div>
         
         {/* Online status */}
-        <div className="absolute top-2 right-2">
-          <OnlineStatusBadge isOnline={reader.isOnline || false} className="bg-primary-dark/70 backdrop-blur-sm px-2 py-1 rounded-full" />
+        <div className="absolute top-1 right-1">
+          <OnlineStatusBadge isOnline={reader.isOnline || false} className="bg-primary-dark/70 backdrop-blur-sm px-1.5 py-0.5 text-xs rounded-full" />
         </div>
       </div>
       
       {/* Reader info */}
-      <h3 className="text-2xl font-alex text-accent mb-1">{reader.fullName}</h3>
+      <h3 className="text-xl font-alex text-accent mb-0.5">{reader.fullName}</h3>
       
       {/* Rating */}
-      {reader.rating && (
-        <div className="flex items-center mb-2">
-          <StarIcon className="h-4 w-4 text-yellow-500 mr-1" />
-          <span className="text-light/90 font-playfair">{reader.rating}/5</span>
+      <div className="flex items-center space-x-2 mb-1">
+        <div className="flex items-center">
+          <StarIcon className="h-3 w-3 text-yellow-500 mr-0.5" />
+          <span className="text-light/90 text-xs font-playfair">{reader.rating || "-"}/5</span>
         </div>
-      )}
+        
+        {/* Pricing */}
+        {reader.pricing && (
+          <p className="text-secondary text-xs font-cinzel">
+            ${reader.pricing}/min
+          </p>
+        )}
+      </div>
       
       {/* Specialties */}
       {Array.isArray(specialties) && specialties.length > 0 && (
-        <div className="mb-3">
+        <div className="mb-2">
           <div className="flex flex-wrap gap-1">
-            {specialties.map((specialty: string, index: number) => (
+            {specialties.slice(0, 2).map((specialty: string, index: number) => (
               <span 
                 key={index} 
-                className="text-xs px-2 py-1 rounded-full bg-primary-light/20 text-light/70 font-playfair"
+                className="text-xs px-1.5 py-0.5 rounded-full bg-primary-light/20 text-light/70 font-playfair text-xs"
               >
                 {specialty}
               </span>
             ))}
+            {specialties.length > 2 && (
+              <span className="text-xs text-light/70">+{specialties.length - 2}</span>
+            )}
           </div>
         </div>
       )}
       
-      {/* Bio */}
-      {reader.bio && (
-        <p className="text-light/70 text-sm mb-4 font-playfair line-clamp-3">
-          {reader.bio}
-        </p>
-      )}
-      
-      {/* Pricing */}
-      {reader.pricing && (
-        <div className="mb-4">
-          <p className="text-secondary font-cinzel">
-            ${reader.pricing}/min
-          </p>
-        </div>
-      )}
-      
       {/* Action buttons */}
-      <div className="mt-auto flex space-x-2">
-        <Link href={`/readers/${reader.id}`}>
-          <CelestialButton className="flex-1">
+      <div className="mt-auto flex space-x-1 pt-2">
+        <Link href={`/readers/${reader.id}`} className="flex-1">
+          <CelestialButton className="w-full text-xs py-1.5">
             View Profile
           </CelestialButton>
         </Link>
         <CelestialButton 
           variant="secondary" 
-          className="w-10 h-10 p-0 flex items-center justify-center"
+          className="w-8 h-8 p-0 flex items-center justify-center"
         >
-          <MessageCircleIcon className="h-5 w-5" />
+          <MessageCircleIcon className="h-4 w-4" />
         </CelestialButton>
       </div>
     </GlowCard>

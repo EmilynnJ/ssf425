@@ -67,47 +67,47 @@ export function ReadersSection() {
   const onlineReaders = readers.filter(reader => reader.isOnline);
   
   return (
-    <div className="mb-20">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-4xl font-alex text-secondary">Online Now</h2>
-        <Link href={PATHS.READERS} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair">
+    <div className="mb-14">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-3xl font-alex text-secondary">Online Now</h2>
+        <Link href={PATHS.READERS} className="text-accent hover:text-accent-dark transition duration-300 flex items-center font-playfair text-sm">
           View All
-          <ArrowRightIcon className="ml-1 h-4 w-4" />
+          <ArrowRightIcon className="ml-1 h-3 w-3" />
         </Link>
       </div>
       
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, index) => (
-            <GlowCard key={index} className="p-6">
-              <Skeleton className="h-48 w-full rounded-lg mb-4" />
-              <Skeleton className="h-6 w-32 mb-2" />
-              <Skeleton className="h-4 w-24 mb-2" />
-              <div className="flex gap-2 mb-3">
-                <Skeleton className="h-5 w-16 rounded-full" />
-                <Skeleton className="h-5 w-16 rounded-full" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[...Array(4)].map((_, index) => (
+            <GlowCard key={index} className="p-4">
+              <Skeleton className="h-32 w-full rounded-lg mb-3" />
+              <Skeleton className="h-5 w-24 mb-1" />
+              <Skeleton className="h-3 w-16 mb-1" />
+              <div className="flex gap-1 mb-2">
+                <Skeleton className="h-4 w-14 rounded-full" />
+                <Skeleton className="h-4 w-14 rounded-full" />
               </div>
-              <Skeleton className="h-16 w-full mb-4" />
-              <div className="flex space-x-2">
-                <Skeleton className="h-10 flex-1 rounded-full" />
-                <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-6 w-full mb-1" />
+              <div className="flex space-x-1">
+                <Skeleton className="h-8 flex-1 rounded-full" />
+                <Skeleton className="h-8 w-8 rounded-full" />
               </div>
             </GlowCard>
           ))}
         </div>
       ) : onlineReaders.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {onlineReaders.slice(0, 3).map((reader) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {onlineReaders.slice(0, 4).map((reader) => (
             <ReaderCard key={reader.id} reader={reader} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <GlowCard className="p-8 max-w-md mx-auto">
-            <p className="text-light/80 font-playfair text-lg mb-2">No readers are online at the moment.</p>
-            <p className="text-light/60 font-playfair mb-4">Check back later or browse all our talented psychics.</p>
+        <div className="text-center py-8">
+          <GlowCard className="p-5 max-w-md mx-auto">
+            <p className="text-light/80 font-playfair text-base mb-1">No readers are online at the moment.</p>
+            <p className="text-light/60 font-playfair text-sm mb-3">Check back later or browse all our talented psychics.</p>
             <Link href={PATHS.READERS}>
-              <button className="text-accent underline hover:text-accent-dark transition-colors font-playfair">
+              <button className="text-accent underline hover:text-accent-dark transition-colors font-playfair text-sm">
                 View All Readers
               </button>
             </Link>
