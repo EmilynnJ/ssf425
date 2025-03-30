@@ -4,6 +4,7 @@ import { Menu, X, User, LogOut } from "lucide-react";
 import { PATHS } from "@/lib/constants";
 import { CelestialButton } from "@/components/ui/celestial-button";
 import { useAuth } from "@/hooks/use-auth";
+import { CartButton } from "@/components/shop/cart-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -65,6 +66,9 @@ export function Header() {
           
           {/* Action Buttons / User Menu */}
           <div className="flex items-center space-x-3">
+            {/* Cart Button */}
+            <CartButton />
+            
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

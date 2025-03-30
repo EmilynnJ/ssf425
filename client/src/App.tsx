@@ -5,11 +5,14 @@ import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
+import { CartProvider } from "@/hooks/use-cart";
 import { WebSocketProvider } from "@/hooks/websocket-provider";
 import HomePage from "@/pages/home-page";
 import AboutPage from "@/pages/about-page";
 import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
+import ShopPage from "@/pages/shop-page";
+import CheckoutPage from "@/pages/checkout-page";
 import ReadingSessionPage from "@/pages/reading-session";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
@@ -116,7 +119,9 @@ function Router() {
         <Route path="/readers/:id" component={ReaderDetails} />
         <Route path="/live" component={LiveStreams} />
         <Route path="/live/:id" component={LiveStreamDetails} />
-        <Route path="/shop" component={Shop} />
+        <Route path="/shop" component={ShopPage} />
+        <Route path="/checkout" component={CheckoutPage} />
+        <Route path="/checkout/success" component={CheckoutPage} />
         <Route path="/community" component={Community} />
         <Route path="/help" component={Help} />
         <Route path="/policies" component={Policies} />
@@ -134,10 +139,12 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <WebSocketProvider>
-            <Router />
-            <Toaster />
-          </WebSocketProvider>
+          <CartProvider>
+            <WebSocketProvider>
+              <Router />
+              <Toaster />
+            </WebSocketProvider>
+          </CartProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

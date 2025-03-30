@@ -523,6 +523,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Stripe payment intent creation for shop checkout
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      const { amount } = req.body;
+      
+      if (!process.env.STRIPE_SECRET_KEY) {
+        throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+      }
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      
+      const { clientSecret, paymentIntentId } = await stripeClient.createPaymentIntent({
+        amount,
+        currency: "usd",
+        metadata: {
+          integration_check: 'accept_a_payment',
+          source: 'shop_checkout'
+        },
+      });
+      
+      res.json({ clientSecret, paymentIntentId });
+    } catch (error: any) {
+      console.error('Error creating payment intent:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
   // Admin-only routes for product management
   app.post("/api/products", async (req, res) => {
     if (!req.isAuthenticated() || req.user.role !== "admin") {
