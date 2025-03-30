@@ -15,9 +15,9 @@ export function HeroSection() {
       
       <div className="w-40 md:w-56 mb-4 z-10">
         <img 
-          src="/assets/logos/eye_logo.png" 
+          src="/assets/logos/eye_logo_transparent.png" 
           alt="SoulSeer Eye" 
-          className="w-full h-auto eye-glow animate-pulse-slow"
+          className="w-full h-auto eye-glow"
         />
       </div>
       
