@@ -776,6 +776,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create forum post" });
     }
   });
+
+  app.get("/api/forum/posts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid post ID" });
+      }
+      
+      const post = await storage.getForumPost(id);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      // Increment view count
+      const updatedPost = await storage.updateForumPost(id, {
+        views: post.views + 1
+      });
+      
+      res.json(updatedPost);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch post" });
+    }
+  });
+  
+  app.post("/api/forum/posts/:id/like", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid post ID" });
+      }
+      
+      const post = await storage.getForumPost(id);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      // Increment likes
+      const updatedPost = await storage.updateForumPost(id, {
+        likes: post.likes + 1
+      });
+      
+      res.json(updatedPost);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to like post" });
+    }
+  });
+  
+  app.get("/api/forum/comments", async (req, res) => {
+    try {
+      const postId = req.query.postId ? parseInt(req.query.postId as string) : undefined;
+      
+      if (postId) {
+        const comments = await storage.getForumCommentsByPost(postId);
+        return res.json(comments);
+      }
+      
+      res.status(400).json({ message: "Post ID is required" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
   
   app.get("/api/forum/posts/:id/comments", async (req, res) => {
     try {

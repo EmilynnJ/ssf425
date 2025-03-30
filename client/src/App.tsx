@@ -14,6 +14,7 @@ import DashboardPage from "@/pages/dashboard-page";
 import ShopPage from "@/pages/shop-page";
 import CheckoutPage from "@/pages/checkout-page";
 import ReadingSessionPage from "@/pages/reading-session";
+import CommunityPage from "@/pages/community-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
 import "@/styles/globals.css";
@@ -122,7 +123,7 @@ function Router() {
         <Route path="/shop" component={ShopPage} />
         <Route path="/checkout" component={CheckoutPage} />
         <Route path="/checkout/success" component={CheckoutPage} />
-        <Route path="/community" component={Community} />
+        <Route path="/community" component={CommunityPage} />
         <Route path="/help" component={Help} />
         <Route path="/policies" component={Policies} />
         <Route path="/apply" component={Apply} />
