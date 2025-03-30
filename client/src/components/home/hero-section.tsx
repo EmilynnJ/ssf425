@@ -13,11 +13,11 @@ export function HeroSection() {
         <span className="text-secondary">Seer</span>
       </h1>
       
-      <div className="w-32 md:w-40 mb-4 z-10">
+      <div className="w-40 md:w-56 mb-4 z-10">
         <img 
-          src="/assets/logos/soulseer_logo.png" 
-          alt="SoulSeer Logo" 
-          className="w-full h-auto glow-effect"
+          src="/assets/logos/eye_logo.png" 
+          alt="SoulSeer Eye" 
+          className="w-full h-auto eye-glow animate-pulse-slow"
         />
       </div>
       

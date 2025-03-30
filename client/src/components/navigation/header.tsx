@@ -39,7 +39,7 @@ export function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link href={PATHS.HOME} className="flex items-center gap-2">
+          <Link href={PATHS.HOME} className="flex items-center gap-3">
             <img 
               src="/assets/logos/soulseer_logo.png" 
               alt="SoulSeer Logo" 
@@ -49,7 +49,7 @@ export function Header() {
           </Link>
           
           {/* Navigation - Desktop */}
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}

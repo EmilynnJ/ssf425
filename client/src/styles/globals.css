@@ -148,6 +148,17 @@
     filter: drop-shadow(0 0 12px rgba(255, 0, 128, 0.8));
   }
   
+  .eye-glow {
+    filter: drop-shadow(0 0 10px rgba(255, 0, 180, 0.7)) 
+            drop-shadow(0 0 20px rgba(128, 0, 255, 0.5));
+    transition: filter 0.5s ease;
+  }
+  
+  .eye-glow:hover {
+    filter: drop-shadow(0 0 15px rgba(255, 0, 180, 0.9))
+            drop-shadow(0 0 30px rgba(128, 0, 255, 0.7));
+  }
+  
   /* Cursor */
   .sparkle-cursor {
     @apply pointer-events-none fixed z-50 h-6 w-6 -ml-3 -mt-3 mix-blend-difference;
