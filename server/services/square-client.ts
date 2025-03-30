@@ -9,8 +9,8 @@ export const squareConfig = {
 
 // Configure Square client
 const squareClient = new SquareClient({
-  accessToken: process.env.SQUARE_ACCESS_TOKEN || '',
-  environment: SquareEnvironment.Sandbox // or SquareEnvironment.Production for live mode
+  token: process.env.SQUARE_ACCESS_TOKEN || '',
+  environment: 'sandbox' // or 'production' for live mode
 });
 
 // Function to create a payment for a per-minute reading session
@@ -31,7 +31,7 @@ export async function createOnDemandReadingPayment(
     const orderId = uuidv4();
     
     // Create a checkout payment link using Square API
-    const response = await squareClient.checkoutApi.createPaymentLink({
+    const response = await squareClient.checkout.createPaymentLink({
       idempotencyKey,
       checkoutOptions: {
         redirectUrl: `${process.env.BASE_URL || ''}/readings/${readingId}/start`,
