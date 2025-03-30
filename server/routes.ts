@@ -145,6 +145,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             timestamp: Date.now()
           }));
         }
+        
+        // Handle WebRTC signaling messages
+        else if (['offer', 'answer', 'ice_candidate', 'call_ended', 'join_reading', 'call_connected'].includes(data.type) && data.readingId) {
+          console.log(`WebRTC signaling: ${data.type} for reading ${data.readingId}`);
+          
+          // If this is a join message, broadcast it to everyone to notify them
+          if (data.type === 'join_reading') {
+            broadcastToAll(data);
+          }
+          // If this message has a specific recipient, forward it only to them
+          else if (data.recipientId) {
+            notifyUser(data.recipientId, data);
+          }
+          // Otherwise broadcast it to all clients associated with this reading
+          else {
+            broadcastToAll(data);
+          }
+        }
       } catch (error) {
         console.error(`Error processing WebSocket message from client ${clientId}:`, error);
         
@@ -294,6 +312,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  app.get("/api/readings/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Check if user is authorized (client or reader of this reading)
+      if (req.user.id !== reading.clientId && req.user.id !== reading.readerId && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      res.json(reading);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch reading" });
+    }
+  });
+  
   app.patch("/api/readings/:id/status", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
@@ -323,6 +368,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedReading);
     } catch (error) {
       res.status(500).json({ message: "Failed to update reading status" });
+    }
+  });
+  
+  // Send a chat message in a reading session
+  app.post("/api/readings/:id/message", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Check if user is authorized (client or reader of this reading)
+      if (req.user.id !== reading.clientId && req.user.id !== reading.readerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({ message: "Message is required" });
+      }
+      
+      // Broadcast the message to both participants
+      (global as any).websocket.broadcastToAll({
+        type: 'chat_message',
+        readingId: reading.id,
+        senderId: req.user.id,
+        senderName: req.user.fullName || req.user.username,
+        message,
+        timestamp: Date.now()
+      });
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+  
+  // End a reading session
+  app.post("/api/readings/:id/end", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Check if user is authorized (client or reader of this reading)
+      if (req.user.id !== reading.clientId && req.user.id !== reading.readerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      const { duration } = req.body;
+      
+      if (!duration || isNaN(duration)) {
+        return res.status(400).json({ message: "Valid duration is required" });
+      }
+      
+      // Calculate final cost based on duration and price per minute
+      const durationInMinutes = Math.ceil(duration / 60); // Convert seconds to minutes, round up
+      const totalCost = reading.pricePerMinute * durationInMinutes;
+      
+      // Update reading with duration, status, and end time
+      const updatedReading = await storage.updateReading(id, {
+        status: "completed",
+        duration,
+        totalCost,
+        endedAt: new Date()
+      });
+      
+      // Process the payment if this is an on-demand reading
+      if (reading.readingMode === 'on_demand') {
+        try {
+          await processCompletedReadingPayment(
+            reading.id,
+            totalCost,
+            durationInMinutes
+          );
+        } catch (paymentError) {
+          console.error('Error processing payment:', paymentError);
+          // Continue anyway as the reading is completed
+        }
+      }
+      
+      // Notify both client and reader about the end of the session
+      (global as any).websocket.broadcastToAll({
+        type: 'reading_ended',
+        readingId: reading.id,
+        duration,
+        totalCost,
+        timestamp: Date.now()
+      });
+      
+      res.json(updatedReading);
+    } catch (error) {
+      console.error('Error ending reading:', error);
+      res.status(500).json({ message: "Failed to end reading session" });
     }
   });
   

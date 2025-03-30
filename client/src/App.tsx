@@ -9,6 +9,7 @@ import { WebSocketProvider } from "@/hooks/websocket-provider";
 import HomePage from "@/pages/home-page";
 import AboutPage from "@/pages/about-page";
 import AuthPage from "@/pages/auth-page";
+import ReadingSessionPage from "@/pages/reading-session";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
 import "@/styles/globals.css";
@@ -113,6 +114,7 @@ function Router() {
         {/* Protected routes - require login */}
         <ProtectedRoute path="/dashboard" component={Dashboard} />
         <ProtectedRoute path="/messages" component={Messages} />
+        <ProtectedRoute path="/reading-session/:id" component={ReadingSessionPage} />
         
         {/* Public routes */}
         <Route path="/readers" component={Readers} />

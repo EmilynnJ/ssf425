@@ -31,7 +31,7 @@ export async function createOnDemandReadingPayment(
     const orderId = uuidv4();
     
     // Create a checkout payment link using Square API
-    const response = await squareClient.checkoutApi.createPaymentLink({
+    const response = await squareClient.checkout.createPaymentLink({
       idempotencyKey,
       checkoutOptions: {
         redirectUrl: `${process.env.BASE_URL || ''}/readings/${readingId}/start`,
@@ -105,7 +105,7 @@ export async function processCompletedReadingPayment(
     const readingOrderId = `reading-${readingId}-${idempotencyKey.substring(0, 8)}`;
     
     // Create an order using Square API
-    const orderResponse = await squareClient.ordersApi.createOrder({
+    const orderResponse = await squareClient.orders.createOrder({
       idempotencyKey,
       order: {
         locationId: squareConfig.locationId,
@@ -143,7 +143,7 @@ export async function processCompletedReadingPayment(
     const order = orderResponse.result.order;
     
     // Create a payment for the order
-    const paymentResponse = await squareClient.paymentsApi.createPayment({
+    const paymentResponse = await squareClient.payments.createPayment({
       idempotencyKey: `${idempotencyKey}-payment`,
       sourceId: 'EXTERNAL', // For manual entry
       amountMoney: {
@@ -192,7 +192,7 @@ export async function createProductPurchase(
 ) {
   try {
     // First, retrieve the product details from Square catalog
-    const productResponse = await squareClient.catalogApi.retrieveCatalogObject(productId);
+    const productResponse = await squareClient.catalog.retrieveCatalogObject(productId);
     
     if (productResponse.result.errors && productResponse.result.errors.length > 0) {
       console.error('Square API error retrieving product:', productResponse.result.errors);
@@ -232,7 +232,7 @@ export async function createProductPurchase(
     }
     
     // Create a checkout payment link using Square API
-    const response = await squareClient.checkoutApi.createPaymentLink({
+    const response = await squareClient.checkout.createPaymentLink({
       idempotencyKey,
       checkoutOptions: {
         redirectUrl: `${process.env.BASE_URL || ''}/orders/confirmation`,
@@ -283,7 +283,7 @@ export async function createProductPurchase(
 export async function syncSquareCatalog() {
   try {
     // Fetch the entire catalog from Square
-    const catalogResponse = await squareClient.catalogApi.listCatalog(undefined, 'ITEM');
+    const catalogResponse = await squareClient.catalog.listCatalog(undefined, 'ITEM');
     
     if (catalogResponse.result.errors && catalogResponse.result.errors.length > 0) {
       console.error('Square API error retrieving catalog:', catalogResponse.result.errors);
@@ -324,7 +324,7 @@ export async function syncSquareCatalog() {
       // Get the inventory count if available
       let stock = 0;
       try {
-        const inventoryResponse = await squareClient.inventoryApi.retrieveInventoryCount(
+        const inventoryResponse = await squareClient.inventory.retrieveInventoryCount(
           variation.id,
           squareConfig.locationId
         );
