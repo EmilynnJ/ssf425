@@ -260,6 +260,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update reader status (online/offline)
+  app.patch("/api/readers/status", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "reader") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      const { isOnline } = req.body;
+      
+      if (isOnline === undefined) {
+        return res.status(400).json({ message: "isOnline status is required" });
+      }
+      
+      const updatedUser = await storage.updateUser(req.user.id, {
+        isOnline,
+        lastActive: new Date()
+      });
+      
+      // Broadcast status change to all connected clients
+      broadcastReaderActivity(req.user.id, isOnline ? 'online' : 'offline');
+      
+      res.json({ success: true, user: updatedUser });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+  
+  // Update reader pricing
+  app.patch("/api/readers/pricing", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "reader") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      const { pricingChat, pricingVoice, pricingVideo } = req.body;
+      
+      if (pricingChat === undefined && pricingVoice === undefined && pricingVideo === undefined) {
+        return res.status(400).json({ message: "At least one pricing field is required" });
+      }
+      
+      // Validate pricing values
+      const update: UserUpdate = {};
+      
+      if (pricingChat !== undefined) {
+        if (isNaN(pricingChat) || pricingChat < 0) {
+          return res.status(400).json({ message: "Chat pricing must be a positive number" });
+        }
+        update.pricingChat = pricingChat;
+      }
+      
+      if (pricingVoice !== undefined) {
+        if (isNaN(pricingVoice) || pricingVoice < 0) {
+          return res.status(400).json({ message: "Voice pricing must be a positive number" });
+        }
+        update.pricingVoice = pricingVoice;
+      }
+      
+      if (pricingVideo !== undefined) {
+        if (isNaN(pricingVideo) || pricingVideo < 0) {
+          return res.status(400).json({ message: "Video pricing must be a positive number" });
+        }
+        update.pricingVideo = pricingVideo;
+      }
+      
+      // Update the pricing
+      const updatedUser = await storage.updateUser(req.user.id, update);
+      
+      // Remove sensitive data before returning
+      const { password, ...safeUser } = updatedUser;
+      
+      res.json({ success: true, user: safeUser });
+    } catch (error) {
+      console.error("Failed to update reader pricing:", error);
+      res.status(500).json({ message: "Failed to update pricing" });
+    }
+  });
+  
   // Readings
   app.post("/api/readings", async (req, res) => {
     if (!req.isAuthenticated()) {
@@ -1089,6 +1166,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Reader is not online" });
       }
       
+      // Determine the appropriate price based on reading type
+      let pricePerMinute = 100; // Default $1/min
+      
+      if (type === 'chat') {
+        pricePerMinute = reader.pricingChat || reader.pricing || 100;
+      } else if (type === 'voice') {
+        pricePerMinute = reader.pricingVoice || reader.pricing || 200;
+      } else if (type === 'video') {
+        pricePerMinute = reader.pricingVideo || reader.pricing || 300;
+      }
+      
       // Create a new reading record
       const reading = await storage.createReading({
         readerId,
@@ -1096,14 +1184,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: "waiting_payment",
         type,
         readingMode: "on_demand",
-        pricePerMinute: reader.pricing || 100, // Use reader's pricing or default to $1/min
+        pricePerMinute: pricePerMinute,
         duration: null, // Will be set after the reading is completed
         notes: null
       });
       
       // Create payment link
       const paymentResult = await createOnDemandReadingPayment(
-        reader.pricing || 100, // in cents
+        pricePerMinute, // in cents
         req.user.id,
         req.user.fullName,
         readerId,

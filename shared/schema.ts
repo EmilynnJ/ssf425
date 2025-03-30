@@ -12,7 +12,10 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["client", "reader", "admin"] }).notNull().default("client"),
   bio: text("bio"),
   specialties: text("specialties").array(),
-  pricing: integer("pricing"), // Base price per minute in cents
+  pricing: integer("pricing"), // Legacy field - base price per minute in cents
+  pricingChat: integer("pricing_chat"), // Chat price per minute in cents
+  pricingVoice: integer("pricing_voice"), // Voice/phone price per minute in cents
+  pricingVideo: integer("pricing_video"), // Video price per minute in cents
   rating: integer("rating"),
   reviewCount: integer("review_count").default(0),
   verified: boolean("verified").default(false),

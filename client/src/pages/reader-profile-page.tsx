@@ -255,7 +255,34 @@ export default function ReaderProfilePage() {
                 </button>
               </div>
               
-              <div className="flex items-center text-sm text-light/70 mb-6">
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-accent mb-2">Pricing:</h3>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="flex flex-col items-center p-2 rounded-md bg-primary-dark/40 border border-accent/20">
+                    <MessageSquare className="w-4 h-4 mb-1 text-accent" />
+                    <span className="font-bold text-light">Chat</span>
+                    <span className="text-light/80">
+                      {formatPrice(reader.pricingChat || reader.pricing || 0)}/min
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-md bg-primary-dark/40 border border-accent/20">
+                    <Phone className="w-4 h-4 mb-1 text-accent" />
+                    <span className="font-bold text-light">Voice</span>
+                    <span className="text-light/80">
+                      {formatPrice(reader.pricingVoice || (reader.pricing ? reader.pricing + 100 : 0))}/min
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-md bg-primary-dark/40 border border-accent/20">
+                    <Video className="w-4 h-4 mb-1 text-accent" />
+                    <span className="font-bold text-light">Video</span>
+                    <span className="text-light/80">
+                      {formatPrice(reader.pricingVideo || (reader.pricing ? reader.pricing + 200 : 0))}/min
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center text-xs text-light/70 mb-6">
                 <Shield className="w-4 h-4 mr-2 text-accent/60" />
                 <p>Pay-per-minute: only pay for the time you use. Secure payment via Stripe.</p>
               </div>
@@ -337,8 +364,21 @@ export default function ReaderProfilePage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-light/60 text-sm">Rate</p>
-                    <p className="text-light/90">{formatPrice(reader.pricing)}/minute</p>
+                    <p className="text-light/60 text-sm">Rates</p>
+                    <div className="flex items-center text-light/90 text-xs gap-2">
+                      <div className="flex items-center">
+                        <MessageSquare className="w-3 h-3 text-accent mr-1" />
+                        {formatPrice(reader.pricingChat || reader.pricing || 0)}
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="w-3 h-3 text-accent mr-1" />
+                        {formatPrice(reader.pricingVoice || (reader.pricing ? reader.pricing + 100 : 0))}
+                      </div>
+                      <div className="flex items-center">
+                        <Video className="w-3 h-3 text-accent mr-1" />
+                        {formatPrice(reader.pricingVideo || (reader.pricing ? reader.pricing + 200 : 0))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { DashboardLayout } from "./dashboard-layout";
 import { useQuery } from "@tanstack/react-query";
 import { Reading, User } from "@shared/schema";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
@@ -10,11 +10,29 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageCircle, Phone, Video } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 
 export function ReaderDashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(user?.isOnline || false);
+  const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false);
+  const [pricingChat, setPricingChat] = useState<number | undefined>(user?.pricingChat || user?.pricing || 0);
+  const [pricingVoice, setPricingVoice] = useState<number | undefined>(user?.pricingVoice || (user?.pricing ? user.pricing + 100 : 0));
+  const [pricingVideo, setPricingVideo] = useState<number | undefined>(user?.pricingVideo || (user?.pricing ? user.pricing + 200 : 0));
+  const [isUpdatingPricing, setIsUpdatingPricing] = useState(false);
   
   const { data: readings, isLoading } = useQuery<Reading[]>({
     queryKey: ["/api/readings/reader"],
@@ -23,6 +41,9 @@ export function ReaderDashboard() {
   useEffect(() => {
     if (user) {
       setIsOnline(user.isOnline || false);
+      setPricingChat(user.pricingChat || user.pricing || 0);
+      setPricingVoice(user.pricingVoice || (user.pricing ? user.pricing + 100 : 0));
+      setPricingVideo(user.pricingVideo || (user.pricing ? user.pricing + 200 : 0));
     }
   }, [user]);
   
@@ -39,6 +60,42 @@ export function ReaderDashboard() {
     } catch (err) {
       console.error("Failed to update online status:", err);
       setIsOnline(!checked); // Revert on failure
+    }
+  };
+  
+  const handleUpdatePricing = async () => {
+    if (isUpdatingPricing) return;
+    
+    try {
+      setIsUpdatingPricing(true);
+      
+      const response = await apiRequest("PATCH", "/api/readers/pricing", {
+        pricingChat,
+        pricingVoice,
+        pricingVideo
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update pricing");
+      }
+      
+      // Invalidate user data to refresh pricing
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
+      setIsPricingDialogOpen(false);
+      toast({
+        title: "Pricing Updated",
+        description: "Your new reading rates have been saved.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to update pricing",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingPricing(false);
     }
   };
   
@@ -85,13 +142,125 @@ export function ReaderDashboard() {
         
         <Card className="glow-card">
           <CardHeader className="p-3 md:p-6">
-            <CardTitle className="text-lg md:text-xl">Pricing</CardTitle>
+            <CardTitle className="text-lg md:text-xl">Reading Rates</CardTitle>
+            <CardDescription className="text-xs md:text-sm">
+              Per minute pricing for each reading type
+            </CardDescription>
           </CardHeader>
           <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
-            <div className="text-2xl md:text-3xl font-bold mb-2 gold-gradient">
-              {user?.pricing ? formatCurrency(user.pricing / 100) : "$0.00"}/min
+            <div className="space-y-2 mb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Chat:</span>
+                </div>
+                <span className="font-bold text-sm gold-gradient">
+                  {formatCurrency((user?.pricingChat || user?.pricing || 0) / 100)}/min
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Phone className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Voice:</span>
+                </div>
+                <span className="font-bold text-sm gold-gradient">
+                  {formatCurrency((user?.pricingVoice || (user?.pricing ? user.pricing + 100 : 0)) / 100)}/min
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <Video className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Video:</span>
+                </div>
+                <span className="font-bold text-sm gold-gradient">
+                  {formatCurrency((user?.pricingVideo || (user?.pricing ? user.pricing + 200 : 0)) / 100)}/min
+                </span>
+              </div>
             </div>
-            <Button variant="outline" size="sm">Update Pricing</Button>
+            
+            <Dialog open={isPricingDialogOpen} onOpenChange={setIsPricingDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">Update Pricing</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Update Reading Rates</DialogTitle>
+                  <DialogDescription>
+                    Set your per-minute pricing for each reading type.
+                    All prices are in US dollars (cents).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      <Label htmlFor="pricing-chat">Chat Rate (cents per minute)</Label>
+                    </div>
+                    <Input
+                      id="pricing-chat"
+                      type="number"
+                      value={pricingChat}
+                      onChange={(e) => setPricingChat(parseInt(e.target.value) || 0)}
+                      min={0}
+                      placeholder="100"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Example: 100 = $1.00 per minute
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Phone className="h-5 w-5 mr-2" />
+                      <Label htmlFor="pricing-voice">Voice Rate (cents per minute)</Label>
+                    </div>
+                    <Input
+                      id="pricing-voice"
+                      type="number"
+                      value={pricingVoice}
+                      onChange={(e) => setPricingVoice(parseInt(e.target.value) || 0)}
+                      min={0}
+                      placeholder="200"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Example: 200 = $2.00 per minute
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Video className="h-5 w-5 mr-2" />
+                      <Label htmlFor="pricing-video">Video Rate (cents per minute)</Label>
+                    </div>
+                    <Input
+                      id="pricing-video"
+                      type="number"
+                      value={pricingVideo}
+                      onChange={(e) => setPricingVideo(parseInt(e.target.value) || 0)}
+                      min={0}
+                      placeholder="300"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Example: 300 = $3.00 per minute
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button 
+                    onClick={handleUpdatePricing} 
+                    disabled={isUpdatingPricing}
+                  >
+                    {isUpdatingPricing && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
         
