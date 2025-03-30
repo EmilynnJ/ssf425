@@ -1,44 +1,32 @@
-// Test script for Square SDK
-import { SquareClient } from 'square';
+// This is a simple test file to explore the Square SDK API structure
+import pkg from 'square';
 
-// Print Square SDK version
-console.log('Square SDK version: v42.0.0'); // Known from npm list
+// Log the Square package structure
+console.log('Square package structure:');
+console.log(Object.keys(pkg));
 
-// Create a client
-const client = new SquareClient({
-  token: process.env.SQUARE_ACCESS_TOKEN || 'YOUR_ACCESS_TOKEN'
+// Initialize the Square client - use SquareClient constructor
+const client = new pkg.SquareClient({
+  accessToken: 'fake-token',
+  environment: pkg.SquareEnvironment.Sandbox
 });
 
-// Print the available API endpoints
-console.log('Available API endpoints:');
-console.log(Object.keys(client));
+// Log the client structure
+console.log('Client properties:');
+console.log(Object.getOwnPropertyNames(client));
 
-// Let's explore the checkout API
-if (client.checkout) {
-  console.log('\nCheckout API methods:');
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client.checkout)));
-}
+// Get the client's prototype
+console.log('\nClient prototype methods:');
+console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client)));
 
-// Let's explore the catalog API
-if (client.catalog) {
-  console.log('\nCatalog API methods:');
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client.catalog)));
-}
-
-// Let's explore the payments API
-if (client.payments) {
-  console.log('\nPayments API methods:');
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client.payments)));
-}
-
-// Let's explore the orders API
-if (client.orders) {
-  console.log('\nOrders API methods:');
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client.orders)));
-}
-
-// Let's explore the inventory API
-if (client.inventory) {
-  console.log('\nInventory API methods:');
-  console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(client.inventory)));
+// Attempt to access API properties
+console.log('\nAccessing API properties on client:');
+try {
+  console.log('client.checkout:', client.checkout !== undefined);
+  console.log('client.catalog:', client.catalog !== undefined);
+  console.log('client.orders:', client.orders !== undefined);
+  console.log('client.payments:', client.payments !== undefined);
+  console.log('client.inventory:', client.inventory !== undefined);
+} catch (e) {
+  console.log('Error accessing properties:', e.message);
 }
