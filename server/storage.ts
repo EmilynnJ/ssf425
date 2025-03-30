@@ -25,6 +25,7 @@ export interface IStorage {
   // Readings
   createReading(reading: InsertReading): Promise<Reading>;
   getReading(id: number): Promise<Reading | undefined>;
+  getReadings(): Promise<Reading[]>;
   getReadingsByClient(clientId: number): Promise<Reading[]>;
   getReadingsByReader(readerId: number): Promise<Reading[]>;
   updateReading(id: number, reading: Partial<InsertReading>): Promise<Reading | undefined>;
@@ -236,6 +237,10 @@ export class MemStorage implements IStorage {
   
   async getReading(id: number): Promise<Reading | undefined> {
     return this.readings.get(id);
+  }
+  
+  async getReadings(): Promise<Reading[]> {
+    return Array.from(this.readings.values());
   }
   
   async getReadingsByClient(clientId: number): Promise<Reading[]> {
@@ -630,7 +635,9 @@ export class DatabaseStorage implements IStorage {
       lastActive: now,
       isOnline: false,
       reviewCount: 0,
-      squareCustomerId: null
+      accountBalance: 0,
+      squareCustomerId: null,
+      stripeCustomerId: null
     }).returning();
 
     return createdUser;
@@ -682,6 +689,10 @@ export class DatabaseStorage implements IStorage {
   async getReading(id: number): Promise<Reading | undefined> {
     const [reading] = await db.select().from(readings).where(eq(readings.id, id));
     return reading;
+  }
+  
+  async getReadings(): Promise<Reading[]> {
+    return await db.select().from(readings);
   }
 
   async getReadingsByClient(clientId: number): Promise<Reading[]> {

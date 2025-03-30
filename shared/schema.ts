@@ -16,10 +16,12 @@ export const users = pgTable("users", {
   rating: integer("rating"),
   reviewCount: integer("review_count").default(0),
   verified: boolean("verified").default(false),
+  accountBalance: integer("account_balance").default(0), // Account balance in cents
   createdAt: timestamp("created_at").defaultNow(),
   lastActive: timestamp("last_active").defaultNow(),
   isOnline: boolean("is_online").default(false),
   squareCustomerId: text("square_customer_id"), // Square customer ID for payment processing
+  stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for payment processing
 });
 
 export const messages = pgTable("messages", {
@@ -204,6 +206,8 @@ export type UserUpdate = Partial<InsertUser> & {
   isOnline?: boolean;
   lastActive?: Date;
   squareCustomerId?: string;
+  stripeCustomerId?: string;
+  accountBalance?: number;
   reviewCount?: number;
 };
 

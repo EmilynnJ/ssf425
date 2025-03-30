@@ -1,78 +1,68 @@
 import { useEffect, useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { apiRequest } from '@/lib/queryClient';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
-// Load Stripe outside of component to avoid recreating it on renders
-let stripePromise: Promise<any> | null = null;
+// Load Stripe outside of render to avoid recreating the Stripe object on every render
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-// Initialize Stripe
-const getStripe = async () => {
-  if (!stripePromise) {
-    // Fetch public key from server
-    const res = await fetch('/api/stripe/config');
-    const { publishableKey } = await res.json();
-    stripePromise = loadStripe(publishableKey);
-  }
-  return stripePromise;
-};
-
-interface CheckoutFormProps {
-  clientSecret: string;
-  onSuccess?: () => void;
-  onCancel?: () => void;
+interface StripeCheckoutProps {
+  clientSecret?: string;
   amount: number;
+  onSuccess: (paymentIntentId: string) => void;
+  onCancel: () => void;
 }
 
-// Checkout form component
-function CheckoutForm({ clientSecret, onSuccess, onCancel, amount }: CheckoutFormProps) {
+// This component is used inside the Elements provider
+const CheckoutForm = ({ amount, onSuccess, onCancel }: Omit<StripeCheckoutProps, 'clientSecret'>) => {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
-  const { toast } = useToast();
-
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!stripe || !elements) {
       return;
     }
-
+    
     setIsProcessing(true);
-
+    setErrorMessage(undefined);
+    
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: window.location.origin, // Redirect not actually used for this flow
+        return_url: window.location.origin, // Not used in redirect: false mode
       },
       redirect: 'if_required',
     });
-
-    setIsProcessing(false);
-
+    
     if (error) {
-      toast({
-        title: 'Payment failed',
-        description: error.message || 'Something went wrong with your payment.',
-        variant: 'destructive',
-      });
+      setErrorMessage(error.message);
+      setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-      toast({
-        title: 'Payment successful',
-        description: 'Thank you for your payment!',
-      });
-      if (onSuccess) onSuccess();
+      onSuccess(paymentIntent.id);
+    } else {
+      setErrorMessage('Payment processing error. Please try again.');
+      setIsProcessing(false);
     }
   };
-
+  
   return (
     <form onSubmit={handleSubmit}>
-      <PaymentElement />
-      <div className="flex justify-between mt-4">
+      <div className="mb-6">
+        <PaymentElement />
+      </div>
+      
+      {errorMessage && (
+        <div className="text-red-500 text-sm mb-4">
+          {errorMessage}
+        </div>
+      )}
+      
+      <div className="flex justify-between">
         <Button 
           type="button" 
           variant="outline" 
@@ -81,13 +71,14 @@ function CheckoutForm({ clientSecret, onSuccess, onCancel, amount }: CheckoutFor
         >
           Cancel
         </Button>
+        
         <Button 
           type="submit" 
-          disabled={!stripe || isProcessing}
+          disabled={!stripe || !elements || isProcessing}
         >
           {isProcessing ? (
             <>
-              <LoadingSpinner size="sm" className="mr-2" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Processing...
             </>
           ) : (
@@ -97,73 +88,55 @@ function CheckoutForm({ clientSecret, onSuccess, onCancel, amount }: CheckoutFor
       </div>
     </form>
   );
-}
+};
 
-interface StripeCheckoutProps {
-  amount: number;
-  readingId?: number;
-  onSuccess?: () => void;
-  onCancel?: () => void;
-}
-
-// Main Stripe checkout component
-export function StripeCheckout({ amount, readingId, onSuccess, onCancel }: StripeCheckoutProps) {
+// This wraps the checkout form with Stripe Elements
+export function StripeCheckout({ amount, onSuccess, onCancel }: StripeCheckoutProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-
+  
   useEffect(() => {
-    const fetchPaymentIntent = async () => {
-      try {
-        setIsLoading(true);
-        const response = await apiRequest('POST', '/api/stripe/create-payment-intent', {
-          amount,
-          readingId
-        });
-        
-        const data = await response.json();
+    // Create a payment intent when the component mounts
+    fetch('/api/user/add-funds', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ amount }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
         setClientSecret(data.clientSecret);
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to initialize payment.',
-          variant: 'destructive',
-        });
-      } finally {
         setIsLoading(false);
-      }
-    };
-
-    fetchPaymentIntent();
-  }, [amount, readingId, toast]);
-
+      })
+      .catch((error) => {
+        console.error('Error creating payment intent:', error);
+        setIsLoading(false);
+      });
+  }, [amount]);
+  
   if (isLoading || !clientSecret) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <LoadingSpinner size="lg" />
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
+  
+  const options = {
+    clientSecret,
+    appearance: {
+      theme: 'stripe' as const,
+    },
+  };
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Secure Payment</CardTitle>
-        <CardDescription>Complete your payment to continue</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Elements stripe={getStripe()} options={{ clientSecret }}>
-          <CheckoutForm 
-            clientSecret={clientSecret} 
-            onSuccess={onSuccess} 
-            onCancel={onCancel}
-            amount={amount}
-          />
-        </Elements>
-      </CardContent>
-      <CardFooter className="text-xs text-muted-foreground">
-        Your payment is secure and encrypted.
-      </CardFooter>
-    </Card>
+    <Elements stripe={stripePromise} options={options}>
+      <CheckoutForm 
+        amount={amount} 
+        onSuccess={onSuccess} 
+        onCancel={onCancel} 
+      />
+    </Elements>
   );
 }

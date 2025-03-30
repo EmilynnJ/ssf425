@@ -34,18 +34,29 @@ export default function ReadingSessionPage() {
     refetchInterval: 5000, // Refresh every 5 seconds to update status
   });
   
+  // Get user balance
+  const { data: userBalance } = useQuery({
+    queryKey: ['/api/user/balance'],
+    enabled: !!user,
+  });
+
   // End the reading session mutation
   const endReadingMutation = useMutation({
     mutationFn: async () => {
+      // Calculate the total cost based on elapsed time
+      const finalCost = Math.ceil((reading!.pricePerMinute * elapsedTime) / 60);
+      
       await apiRequest('POST', `/api/readings/${params?.id}/end`, {
-        duration: elapsedTime
+        duration: Math.ceil(elapsedTime / 60), // Convert to minutes and round up
+        totalPrice: finalCost  
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/readings/${params?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user/balance'] });
       toast({
         title: 'Reading Ended',
-        description: 'Your reading session has been completed.',
+        description: 'Your reading session has been completed and payment processed from your account balance.',
       });
       setLocation('/readings');
     },

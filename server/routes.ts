@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
-import { UserUpdate } from "@shared/schema";
+import { UserUpdate, Reading } from "@shared/schema";
 import { createOnDemandReadingPayment, processCompletedReadingPayment, squareConfig } from "./services/square-client";
 import stripeClient from "./services/stripe-client";
 
@@ -1099,8 +1099,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Complete an on-demand reading session and process payment
-  app.post("/api/readings/:id/complete", async (req, res) => {
+  // Complete an on-demand reading session and process payment from account balance
+  app.post("/api/readings/:id/end", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Not authenticated" });
     }
@@ -1116,9 +1116,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Reading not found" });
       }
       
-      // For security, only the reader can complete a reading session
-      if (req.user.id !== reading.readerId) {
-        return res.status(403).json({ message: "Only the reader can complete a reading" });
+      // Check if user is authorized (client or reader of this reading)
+      if (req.user.id !== reading.clientId && req.user.id !== reading.readerId) {
+        return res.status(403).json({ message: "Not authorized" });
       }
       
       // Check if reading is in progress
@@ -1126,33 +1126,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Reading is not in progress" });
       }
       
-      const { durationMinutes } = req.body;
+      const { duration, totalPrice } = req.body;
       
-      if (!durationMinutes || durationMinutes <= 0) {
+      if (!duration || duration <= 0) {
         return res.status(400).json({ message: "Invalid duration" });
       }
       
-      // Calculate total price
-      const totalPrice = durationMinutes * reading.pricePerMinute;
+      if (!totalPrice || totalPrice <= 0) {
+        return res.status(400).json({ message: "Invalid total price" });
+      }
       
-      // Get client info
+      // Process payment from client's account balance
       const client = await storage.getUser(reading.clientId);
       if (!client) {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      // Process payment for the completed reading
-      const paymentResult = await processCompletedReadingPayment(
-        reading.id,
-        reading.readerId,
-        reading.clientId,
-        client.fullName,
-        durationMinutes,
-        reading.pricePerMinute
-      );
+      // Check if client has sufficient balance
+      const currentBalance = client.accountBalance || 0;
+      if (currentBalance < totalPrice) {
+        return res.status(400).json({ 
+          message: "Insufficient account balance. Please add funds to continue.",
+          balance: currentBalance,
+          required: totalPrice
+        });
+      }
       
-      if (!paymentResult.success) {
-        return res.status(500).json({ message: "Failed to process payment" });
+      // Deduct from client's balance
+      const updatedClient = await storage.updateUser(client.id, {
+        accountBalance: currentBalance - totalPrice
+      });
+      
+      // Add to reader's balance (if not already admin)
+      const reader = await storage.getUser(reading.readerId);
+      if (reader && reader.role === "reader") {
+        // Readers get 80% of the payment, platform takes 20%
+        const readerShare = Math.floor(totalPrice * 0.8);
+        await storage.updateUser(reader.id, {
+          accountBalance: (reader.accountBalance || 0) + readerShare
+        });
       }
       
       // Update reading with completion details
@@ -1160,25 +1172,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedReading = await storage.updateReading(id, {
         status: "completed",
         completedAt: now,
-        duration: durationMinutes,
-        totalPrice: totalPrice,
+        duration,
+        totalPrice,
         paymentStatus: "paid",
-        paymentId: paymentResult.orderId
+        paymentId: `internal-${Date.now()}`
       });
       
-      // Notify client
+      // Notify both participants
       (global as any).websocket.notifyUser(reading.clientId, {
         type: 'reading_completed',
         reading: updatedReading,
         timestamp: Date.now(),
         totalAmount: totalPrice,
-        durationMinutes: durationMinutes
+        durationMinutes: duration
+      });
+      
+      (global as any).websocket.notifyUser(reading.readerId, {
+        type: 'reading_completed',
+        reading: updatedReading,
+        timestamp: Date.now(),
+        totalAmount: totalPrice,
+        durationMinutes: duration
       });
       
       res.json({
         success: true,
-        reading: updatedReading,
-        payment: paymentResult
+        reading: updatedReading
       });
     } catch (error) {
       console.error('Error completing reading:', error);
@@ -1242,6 +1261,202 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedReading);
     } catch (error) {
       res.status(500).json({ message: "Failed to rate reading" });
+    }
+  });
+  
+  // Account Balance Management
+  app.get('/api/user/balance', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({ 
+        balance: user.accountBalance || 0,
+        formatted: `$${((user.accountBalance || 0) / 100).toFixed(2)}`
+      });
+    } catch (error: any) {
+      console.error("Error fetching user balance:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get user's reading history
+  app.get('/api/users/:id/readings', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    // Users can only access their own readings
+    if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      let readings;
+      
+      if (req.user.role === 'client') {
+        readings = await storage.getReadingsByClient(req.user.id);
+      } else if (req.user.role === 'reader') {
+        readings = await storage.getReadingsByReader(req.user.id);
+      } else {
+        // Admin can view all completed readings
+        const allReadings = await storage.getReadings();
+        readings = allReadings.filter((r: Reading) => r.status === 'completed');
+      }
+      
+      // Add reader names to the readings
+      const readingsWithNames = await Promise.all(readings.map(async (reading: Reading) => {
+        const reader = await storage.getUser(reading.readerId);
+        return {
+          ...reading,
+          readerName: reader ? reader.fullName : 'Unknown Reader'
+        };
+      }));
+      
+      res.json(readingsWithNames.filter((r: Reading & { readerName: string }) => r.status === 'completed'));
+    } catch (error: any) {
+      console.error("Error fetching readings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get user's upcoming readings
+  app.get('/api/users/:id/readings/upcoming', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    // Users can only access their own upcoming readings
+    if (req.user.id !== parseInt(req.params.id) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      let readings;
+      
+      if (req.user.role === 'client') {
+        readings = await storage.getReadingsByClient(req.user.id);
+      } else if (req.user.role === 'reader') {
+        readings = await storage.getReadingsByReader(req.user.id);
+      } else {
+        // Admin can view all scheduled readings
+        const allReadings = await storage.getReadings();
+        readings = allReadings.filter(r => 
+          r.status === 'scheduled' || 
+          r.status === 'waiting_payment' || 
+          r.status === 'payment_completed' ||
+          r.status === 'in_progress'
+        );
+      }
+      
+      // Add reader names to the readings
+      const readingsWithNames = await Promise.all(readings.map(async (reading) => {
+        const reader = await storage.getUser(reading.readerId);
+        return {
+          ...reading,
+          readerName: reader ? reader.fullName : 'Unknown Reader'
+        };
+      }));
+      
+      // Filter for upcoming readings
+      const upcomingReadings = readingsWithNames.filter(r => 
+        r.status === 'scheduled' || 
+        r.status === 'waiting_payment' || 
+        r.status === 'payment_completed' ||
+        r.status === 'in_progress'
+      );
+      
+      res.json(upcomingReadings);
+    } catch (error: any) {
+      console.error("Error fetching upcoming readings:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Add funds to account balance 
+  app.post('/api/user/add-funds', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const { amount } = req.body;
+    
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Valid amount is required" });
+    }
+    
+    try {
+      // Create a Stripe payment intent to add funds
+      const result = await stripeClient.createPaymentIntent({
+        amount,
+        metadata: {
+          userId: req.user.id.toString(),
+          purpose: 'account_funding'
+        }
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating payment intent for adding funds:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Confirm added funds (after payment is completed)
+  app.post('/api/user/confirm-funds', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const { paymentIntentId } = req.body;
+    
+    if (!paymentIntentId) {
+      return res.status(400).json({ message: "Payment intent ID is required" });
+    }
+    
+    try {
+      // Check if payment intent exists and is valid
+      const paymentIntent = await stripeClient.retrievePaymentIntent(paymentIntentId);
+      
+      if (paymentIntent.status !== "succeeded") {
+        return res.status(400).json({ message: "Payment not completed" });
+      }
+      
+      if (paymentIntent.metadata.userId !== req.user.id.toString()) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+      
+      // Add funds to user's account balance
+      const amountToAdd = paymentIntent.amount;
+      const user = await storage.getUser(req.user.id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const currentBalance = user.accountBalance || 0;
+      const updatedUser = await storage.updateUser(user.id, {
+        accountBalance: currentBalance + amountToAdd
+      });
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update account balance" });
+      }
+      
+      res.json({ 
+        success: true, 
+        newBalance: updatedUser.accountBalance || 0,
+        formatted: `$${((updatedUser.accountBalance || 0) / 100).toFixed(2)}` 
+      });
+    } catch (error: any) {
+      console.error("Error confirming added funds:", error);
+      res.status(500).json({ message: error.message });
     }
   });
 
