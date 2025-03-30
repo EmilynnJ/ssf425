@@ -33,7 +33,16 @@ export function useWebSocket(): WebSocketHook {
       
       // Create WebSocket with correct protocol based on HTTPS vs HTTP
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      // In Replit, we need to use the current hostname but with the correct port
+      let wsUrl;
+      if (window.location.hostname.includes('replit')) {
+        // For Replit deployments, keep the full hostname
+        wsUrl = `${protocol}//${window.location.host}/ws`;
+      } else {
+        // For local development, use 0.0.0.0 as the hostname
+        wsUrl = `${protocol}//0.0.0.0:${window.location.port}/ws`;
+      }
       
       console.log('Creating WebSocket connection to:', wsUrl);
       setStatus('connecting');

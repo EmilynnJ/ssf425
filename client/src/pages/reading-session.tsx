@@ -3,6 +3,7 @@ import { useRoute, useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
+import { useWebSocketContext } from '@/hooks/websocket-provider';
 import { Reading } from '@shared/schema';
 import { VideoCall } from '@/components/readings/video-call';
 import { apiRequest } from '@/lib/queryClient';
@@ -10,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Clock, MessageCircle, MessageSquare, Video, Phone, Mic, MicOff } from 'lucide-react';
+import { Clock, MessageCircle, MessageSquare, Video, Phone, Mic } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function ReadingSessionPage() {
@@ -26,8 +27,10 @@ export default function ReadingSessionPage() {
   const [sessionStarted, setSessionStarted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   
+  // Use the WebSocket context instead of creating a direct connection
+  const { status, sendMessage, lastMessage, reconnect } = useWebSocketContext();
+
   // Get reading session data
   const { data: reading, isLoading } = useQuery<Reading>({
     queryKey: [`/api/readings/${params?.id}`],
@@ -113,123 +116,109 @@ export default function ReadingSessionPage() {
       }
     };
   }, [reading, user, sessionStarted]);
-
+  
   // Listen for WebSocket messages for the chat
   useEffect(() => {
     if (!reading || !user) return;
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
-    
-    // Store the socket reference
-    wsRef.current = socket;
-    
-    // Debug logging
-    console.log("Creating WebSocket connection to:", wsUrl);
-    
-    socket.addEventListener('open', () => {
-      console.log("WebSocket connection established");
-      // Send a ping on connection to test the socket
-      socket.send(JSON.stringify({ type: 'ping' }));
-      
-      // Add a message indicating you're now connected
-      setChatMessages(prev => [...prev, {
-        sender: 'System',
-        message: 'Connected to chat. Your messages will appear instantly.',
-        timestamp: Date.now()
-      }]);
-      
-      // Authenticate with the WebSocket server
-      socket.send(JSON.stringify({ 
-        type: 'authenticate', 
-        userId: user.id 
-      }));
+    // Add a message based on connection status
+    if (status === 'open') {
+      setChatMessages(prev => {
+        // Only add the system message if it doesn't already exist
+        const hasConnectedMessage = prev.some(msg => 
+          msg.sender === 'System' && 
+          msg.message.includes('Connected to chat')
+        );
+        
+        if (!hasConnectedMessage) {
+          return [...prev, {
+            sender: 'System',
+            message: 'Connected to chat. Your messages will appear instantly.',
+            timestamp: Date.now()
+          }];
+        }
+        return prev;
+      });
       
       // Subscribe to reading-specific messages
-      socket.send(JSON.stringify({
+      sendMessage({
         type: 'subscribe',
         channel: `reading_${reading.id}`
-      }));
-    });
+      });
+    } else if (status === 'closed' || status === 'error') {
+      setChatMessages(prev => {
+        // Only add the system message if it doesn't already exist
+        const hasDisconnectMessage = prev.some(msg => 
+          msg.sender === 'System' && 
+          msg.message.includes('Connection lost')
+        );
+        
+        if (!hasDisconnectMessage) {
+          return [...prev, {
+            sender: 'System',
+            message: 'Connection lost. Attempting to reconnect...',
+            timestamp: Date.now()
+          }];
+        }
+        return prev;
+      });
+      
+      // Try to reconnect
+      reconnect();
+    }
+  }, [reading, user, status, sendMessage, reconnect]);
+  
+  // Process messages from WebSocket
+  useEffect(() => {
+    if (!lastMessage || !reading || !user) return;
     
-    socket.addEventListener('message', (event) => {
-      console.log("WebSocket message received:", event.data);
-      try {
-        const data = JSON.parse(event.data);
-        
-        // Handle ping response
-        if (data === 'pong' || data.type === 'pong') {
-          console.log("Received pong response");
-          return;
-        }
-        
-        // Handle authentication success
-        if (data.type === 'authentication_success') {
-          console.log("Successfully authenticated with WebSocket server");
-          return;
-        }
-        
-        // Handle subscription success
-        if (data.type === 'subscription_success') {
-          console.log(`Successfully subscribed to ${data.channel}`);
-          return;
-        }
-        
-        // Only handle messages for this reading
-        if (data.readingId === reading.id && data.type === 'chat_message') {
-          console.log("Adding chat message to UI:", data);
-          
-          // Don't duplicate messages that were already added locally
-          const isDuplicate = chatMessages.some(msg => 
-            msg.message === data.message && 
-            msg.sender === (data.senderId === user.id ? 'You' : data.senderName) &&
-            Math.abs(msg.timestamp - data.timestamp) < 5000 // within 5 seconds
-          );
-          
-          if (!isDuplicate) {
-            setChatMessages(prev => [...prev, {
-              sender: data.senderId === user.id ? 'You' : data.senderName,
-              message: data.message,
-              timestamp: data.timestamp
-            }]);
-          }
-          
-          // Start the timer on first message if not already started
-          if (!sessionStarted && reading.type === 'chat') {
-            setSessionStarted(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error processing WebSocket message:", error);
+    try {
+      // Handle ping response
+      if (lastMessage === 'pong' || lastMessage.type === 'pong') {
+        console.log("Received pong response");
+        return;
       }
-    });
-    
-    socket.addEventListener('error', (error) => {
-      console.error("WebSocket error:", error);
-      setChatMessages(prev => [...prev, {
-        sender: 'System',
-        message: 'Connection error. Your messages will still be sent via HTTP.',
-        timestamp: Date.now()
-      }]);
-    });
-    
-    socket.addEventListener('close', (event) => {
-      console.log(`WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
-      setChatMessages(prev => [...prev, {
-        sender: 'System',
-        message: 'Connection closed. Attempting to reconnect...',
-        timestamp: Date.now()
-      }]);
-      wsRef.current = null;
-    });
-    
-    return () => {
-      console.log("Closing WebSocket connection");
-      socket.close();
-      wsRef.current = null;
-    };
-  }, [reading, user]);
+      
+      // Handle authentication success
+      if (lastMessage.type === 'authentication_success') {
+        console.log("Successfully authenticated with WebSocket server");
+        return;
+      }
+      
+      // Handle subscription success
+      if (lastMessage.type === 'subscription_success') {
+        console.log(`Successfully subscribed to ${lastMessage.channel}`);
+        return;
+      }
+      
+      // Only handle messages for this reading
+      if (lastMessage.readingId === reading.id && lastMessage.type === 'chat_message') {
+        console.log("Adding chat message to UI:", lastMessage);
+        
+        // Don't duplicate messages that were already added locally
+        const isDuplicate = chatMessages.some(msg => 
+          msg.message === lastMessage.message && 
+          msg.sender === (lastMessage.senderId === user.id ? 'You' : lastMessage.senderName) &&
+          Math.abs(msg.timestamp - lastMessage.timestamp) < 5000 // within 5 seconds
+        );
+        
+        if (!isDuplicate) {
+          setChatMessages(prev => [...prev, {
+            sender: lastMessage.senderId === user.id ? 'You' : lastMessage.senderName,
+            message: lastMessage.message,
+            timestamp: lastMessage.timestamp
+          }]);
+        }
+        
+        // Start the timer on first message if not already started
+        if (!sessionStarted && reading.type === 'chat') {
+          setSessionStarted(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error processing WebSocket message:", error);
+    }
+  }, [lastMessage, reading, user, chatMessages, sessionStarted]);
   
   // Update total cost whenever elapsed time changes
   useEffect(() => {
@@ -257,22 +246,32 @@ export default function ReadingSessionPage() {
   // Handle sending a chat message
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (messageInput.trim() && reading) {
+    if (messageInput.trim() && reading && user) {
       // Send via API
       sendMessageMutation.mutate(messageInput.trim());
       
-      // Also send directly via WebSocket if available (for redundancy)
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Also send directly via WebSocket if connected (for redundancy)
+      if (status === 'open') {
         console.log("Sending message directly via WebSocket");
-        wsRef.current.send(JSON.stringify({
+        sendMessage({
           type: 'chat_message',
           readingId: reading.id,
           senderId: user.id,
           senderName: user.fullName || user.username,
           message: messageInput.trim(),
           timestamp: Date.now()
-        }));
+        });
       }
+      
+      // Add message to the UI immediately
+      setChatMessages(prev => [...prev, {
+        sender: 'You',
+        message: messageInput.trim(),
+        timestamp: Date.now()
+      }]);
+      
+      // Clear input field
+      setMessageInput('');
     }
   };
   
