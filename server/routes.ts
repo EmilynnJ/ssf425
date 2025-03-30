@@ -1606,6 +1606,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create a payment intent for checkout (store purchases)
+  app.post('/api/create-payment-intent', async (req, res) => {
+    try {
+      const { amount } = req.body;
+      
+      if (!amount || isNaN(amount)) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      
+      // If user is logged in, associate the payment with them
+      const metadata: Record<string, string> = {
+        purpose: 'store_purchase'
+      };
+      
+      if (req.isAuthenticated()) {
+        metadata.userId = req.user.id.toString();
+      }
+      
+      const result = await stripeClient.createPaymentIntent({
+        amount,
+        metadata
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating payment intent for store purchase:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Get user balance
+  app.get('/api/user/balance', async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const user = await storage.getUser(req.user.id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const balance = user.accountBalance || 0;
+      
+      res.json({
+        balance,
+        formatted: `$${(balance / 100).toFixed(2)}`
+      });
+    } catch (error: any) {
+      console.error("Error fetching user balance:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
   // Confirm added funds (after payment is completed)
   app.post('/api/user/confirm-funds', async (req, res) => {
     if (!req.isAuthenticated()) {

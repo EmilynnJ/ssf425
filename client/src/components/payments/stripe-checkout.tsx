@@ -8,13 +8,69 @@ import { Loader2 } from 'lucide-react';
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
 interface StripeCheckoutProps {
-  clientSecret?: string;
   amount: number;
   onSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
 }
 
-// This component is used inside the Elements provider
+// This wraps the checkout form with Stripe Elements
+export function StripeCheckout({ amount, onSuccess, onCancel }: StripeCheckoutProps) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Create a payment intent when the component mounts
+    fetch('/api/user/add-funds', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ amount }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        setClientSecret(data.clientSecret);
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('Error creating payment intent:', error);
+        setIsLoading(false);
+      });
+  }, [amount]);
+  
+  if (isLoading || !clientSecret) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  const options = {
+    clientSecret,
+    appearance: {
+      theme: 'night' as const,
+      variables: {
+        colorPrimary: '#a78bfa',
+        colorBackground: '#1a1a2e',
+        colorText: '#ffffff',
+        colorDanger: '#ef4444',
+        fontFamily: 'Cinzel, serif',
+      },
+    },
+  };
+  
+  return (
+    <Elements stripe={stripePromise} options={options}>
+      <CheckoutForm 
+        amount={amount} 
+        onSuccess={onSuccess} 
+        onCancel={onCancel} 
+      />
+    </Elements>
+  );
+}
+
 const CheckoutForm = ({ amount, onSuccess, onCancel }: Omit<StripeCheckoutProps, 'clientSecret'>) => {
   const stripe = useStripe();
   const elements = useElements();
@@ -89,54 +145,3 @@ const CheckoutForm = ({ amount, onSuccess, onCancel }: Omit<StripeCheckoutProps,
     </form>
   );
 };
-
-// This wraps the checkout form with Stripe Elements
-export function StripeCheckout({ amount, onSuccess, onCancel }: StripeCheckoutProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  useEffect(() => {
-    // Create a payment intent when the component mounts
-    fetch('/api/user/add-funds', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ amount }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error('Error creating payment intent:', error);
-        setIsLoading(false);
-      });
-  }, [amount]);
-  
-  if (isLoading || !clientSecret) {
-    return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-  const options = {
-    clientSecret,
-    appearance: {
-      theme: 'stripe' as const,
-    },
-  };
-  
-  return (
-    <Elements stripe={stripePromise} options={options}>
-      <CheckoutForm 
-        amount={amount} 
-        onSuccess={onSuccess} 
-        onCancel={onCancel} 
-      />
-    </Elements>
-  );
-}

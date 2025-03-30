@@ -13,6 +13,7 @@ import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
 import ShopPage from "@/pages/shop-page";
 import CheckoutPage from "@/pages/checkout-page";
+import AddFundsPage from "@/pages/add-funds-page";
 import ReadingSessionPage from "@/pages/reading-session";
 import CommunityPage from "@/pages/community-page";
 import ReadersPage from "@/pages/readers-page";
@@ -116,6 +117,7 @@ function Router() {
         <ProtectedRoute path="/dashboard" component={DashboardPage} />
         <ProtectedRoute path="/messages" component={Messages} />
         <ProtectedRoute path="/reading-session/:id" component={ReadingSessionPage} />
+        <ProtectedRoute path="/add-funds" component={AddFundsPage} />
         
         {/* Public routes */}
         <Route path="/readers" component={ReadersPage} />

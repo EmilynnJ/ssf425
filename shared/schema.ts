@@ -55,6 +55,7 @@ export const readings = pgTable("readings", {
   startedAt: timestamp("started_at"),
   paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
   paymentId: text("payment_id"), // Stripe payment intent ID
+  paymentLinkUrl: text("payment_link_url"), // Stripe payment link URL
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID
   rating: integer("rating"),
   review: text("review"),
@@ -159,6 +160,7 @@ export const insertReadingSchema = createInsertSchema(readings)
     startedAt: true, 
     paymentStatus: true,
     paymentId: true,
+    paymentLinkUrl: true,
     stripeCustomerId: true
   });
 
