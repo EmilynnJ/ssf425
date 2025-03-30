@@ -15,13 +15,7 @@ import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
 import "@/styles/globals.css";
 
-// Dashboard component
-const Dashboard = () => (
-  <div className="container min-h-screen py-8">
-    <h1 className="text-4xl font-alex mb-6">Dashboard</h1>
-    <p className="font-playfair">Your personal dashboard is coming soon.</p>
-  </div>
-);
+// Dashboard page has been moved to its own component file
 
 // Messages component
 const Messages = () => (

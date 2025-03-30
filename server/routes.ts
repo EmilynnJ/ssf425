@@ -1460,5 +1460,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin API routes
+  
+  // Get all readings (admin only)
+  app.get("/api/admin/readings", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized. Admin access required." });
+    }
+    
+    try {
+      const readings = await storage.getReadings();
+      const readingsWithNames = await Promise.all(readings.map(async (reading) => {
+        const client = await storage.getUser(reading.clientId);
+        const reader = reading.readerId ? await storage.getUser(reading.readerId) : null;
+        
+        return {
+          ...reading,
+          clientName: client ? client.username : "Unknown",
+          readerName: reader ? reader.username : "Unassigned"
+        };
+      }));
+      
+      return res.json(readingsWithNames);
+    } catch (error) {
+      console.error("Error fetching all readings:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Get all readers (admin only)
+  app.get("/api/admin/readers", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized. Admin access required." });
+    }
+    
+    try {
+      const readers = await storage.getReaders();
+      return res.json(readers);
+    } catch (error) {
+      console.error("Error fetching all readers:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+  
+  // Get all users (admin only)
+  app.get("/api/admin/users", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Unauthorized. Admin access required." });
+    }
+    
+    try {
+      // We need to get all users - adapted storage method might be needed
+      const users = await storage.getAllUsers();
+      
+      // Return without password information
+      const sanitizedUsers = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      return res.json(sanitizedUsers);
+    } catch (error) {
+      console.error("Error fetching all users:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   return httpServer;
 }

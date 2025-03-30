@@ -21,6 +21,7 @@ export interface IStorage {
   updateUser(id: number, user: UserUpdate): Promise<User | undefined>;
   getReaders(): Promise<User[]>;
   getOnlineReaders(): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
   
   // Readings
   createReading(reading: InsertReading): Promise<Reading>;
@@ -210,6 +211,10 @@ export class MemStorage implements IStorage {
   
   async getOnlineReaders(): Promise<User[]> {
     return Array.from(this.users.values()).filter(user => user.role === "reader" && user.isOnline);
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
   }
   
   // Readings
@@ -663,6 +668,10 @@ export class DatabaseStorage implements IStorage {
         eq(users.role, "reader"),
         eq(users.isOnline, true)
       ));
+  }
+  
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
   }
 
   // Reading methods
