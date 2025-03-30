@@ -5,7 +5,6 @@ import { setupAuth } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { UserUpdate, Reading } from "@shared/schema";
-import { createOnDemandReadingPayment, processCompletedReadingPayment, squareConfig } from "./services/square-client";
 import stripeClient from "./services/stripe-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1041,15 +1040,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // On-demand reading endpoints (pay per minute)
   
-  // Get Square configuration for frontend
-  app.get("/api/square/config", (req, res) => {
-    res.json({
-      applicationId: squareConfig.applicationId,
-      locationId: squareConfig.locationId
-    });
-  });
-  
-  // Stripe API endpoints
+  // Payment API endpoints
   app.get("/api/stripe/config", (req, res) => {
     res.json({
       publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY
@@ -1069,8 +1060,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid amount is required" });
       }
       
-      // We'll use square customer ID for now if available, or create a new one later
-      const customerId = req.user.squareCustomerId;
+      // Use Stripe customer ID if available, or create a new one later
+      const customerId = req.user.stripeCustomerId;
       
       const result = await stripeClient.createPaymentIntent({
         amount,
@@ -1185,12 +1176,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type,
         readingMode: "on_demand",
         pricePerMinute: pricePerMinute,
-        duration: null, // Will be set after the reading is completed
+        duration: 0, // Start with 0 and track actual duration during the session
+        totalPrice: 0, // Will be calculated based on duration after the reading is completed
         notes: null
       });
       
-      // Create payment link
-      const paymentResult = await createOnDemandReadingPayment(
+      // Create payment link using Stripe
+      const paymentResult = await stripeClient.createOnDemandReadingPayment(
         pricePerMinute, // in cents
         req.user.id,
         req.user.fullName,

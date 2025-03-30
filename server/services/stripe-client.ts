@@ -121,10 +121,57 @@ export async function retrievePaymentIntent(paymentIntentId: string) {
   }
 }
 
+export async function createOnDemandReadingPayment(
+  pricePerMinute: number, // in cents
+  clientId: number, // ID of the client
+  clientName: string, // Name of the client
+  readerId: number, // ID of the reader
+  readingId: number, // ID of the reading session
+  readingType: string, // Type of reading (chat, phone, video)
+) {
+  try {
+    // Calculate initial amount (10 minutes as a pre-authorization)
+    const initialAmount = pricePerMinute * 10;
+    
+    // Create a Stripe payment intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: initialAmount,
+      currency: 'usd',
+      metadata: {
+        readingId: readingId.toString(),
+        clientId: clientId.toString(),
+        readerId: readerId.toString(),
+        readingType,
+        pricePerMinute: pricePerMinute.toString(),
+        purpose: 'reading_payment'
+      },
+      capture_method: 'manual', // Authorize only initially, capture exact amount later
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    return {
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+      paymentLinkUrl: `/checkout?readingId=${readingId}&paymentIntentId=${paymentIntent.id}`,
+      amount: initialAmount
+    };
+  } catch (error: any) {
+    console.error('Error creating on-demand reading payment:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 export default {
   createPaymentIntent,
   updatePaymentIntent,
   capturePaymentIntent,
   createCustomer,
   retrievePaymentIntent,
+  createOnDemandReadingPayment,
 };
