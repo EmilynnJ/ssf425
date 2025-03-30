@@ -6,6 +6,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { UserUpdate } from "@shared/schema";
 import { createOnDemandReadingPayment, processCompletedReadingPayment, squareConfig } from "./services/square-client";
+import stripeClient from "./services/stripe-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -869,6 +870,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       applicationId: squareConfig.applicationId,
       locationId: squareConfig.locationId
     });
+  });
+  
+  // Stripe API endpoints
+  app.get("/api/stripe/config", (req, res) => {
+    res.json({
+      publishableKey: process.env.VITE_STRIPE_PUBLIC_KEY
+    });
+  });
+  
+  // Create a payment intent for on-demand readings
+  app.post("/api/stripe/create-payment-intent", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const { amount, readingId, metadata = {} } = req.body;
+      
+      if (!amount || isNaN(amount)) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      
+      // We'll use square customer ID for now if available, or create a new one later
+      const customerId = req.user.squareCustomerId;
+      
+      const result = await stripeClient.createPaymentIntent({
+        amount,
+        ...(customerId ? { customerId } : {}),
+        metadata: {
+          readingId: readingId?.toString() || '',
+          userId: req.user.id.toString(),
+          ...metadata
+        }
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Update an existing payment intent (for pay-per-minute)
+  app.post("/api/stripe/update-payment-intent", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const { paymentIntentId, amount, metadata = {} } = req.body;
+      
+      if (!paymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+      
+      if (!amount || isNaN(amount)) {
+        return res.status(400).json({ message: "Valid amount is required" });
+      }
+      
+      const result = await stripeClient.updatePaymentIntent(paymentIntentId, {
+        amount,
+        metadata: {
+          ...metadata,
+          updatedAt: new Date().toISOString()
+        }
+      });
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error updating payment intent:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+  
+  // Capture a payment intent (for finalized pay-per-minute sessions)
+  app.post("/api/stripe/capture-payment-intent", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const { paymentIntentId } = req.body;
+      
+      if (!paymentIntentId) {
+        return res.status(400).json({ message: "Payment intent ID is required" });
+      }
+      
+      const result = await stripeClient.capturePaymentIntent(paymentIntentId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error capturing payment intent:", error);
+      res.status(500).json({ message: error.message });
+    }
   });
   
   // Create an on-demand reading session
