@@ -154,7 +154,6 @@ export const insertReadingSchema = createInsertSchema(readings)
     completedAt: true, 
     rating: true, 
     review: true, 
-    totalPrice: true, 
     startedAt: true, 
     paymentStatus: true,
     paymentId: true,

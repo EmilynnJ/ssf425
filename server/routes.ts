@@ -1157,6 +1157,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Reader is not online" });
       }
       
+      // Check if client has sufficient balance (minimum $5 or 500 cents)
+      const client = await storage.getUser(req.user.id);
+      const minimumBalance = 500; // $5 in cents
+      if (!client || (client.accountBalance || 0) < minimumBalance) {
+        return res.status(400).json({ 
+          message: "Insufficient account balance. Minimum of $5 is required to start a reading.",
+          balance: client ? client.accountBalance || 0 : 0,
+          minimumRequired: minimumBalance
+        });
+      }
+      
       // Determine the appropriate price based on reading type
       let pricePerMinute = 100; // Default $1/min
       
@@ -1314,6 +1325,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!totalPrice || totalPrice <= 0) {
         return res.status(400).json({ message: "Invalid total price" });
+      }
+      
+      // Calculate and verify the price based on duration and pricePerMinute
+      const calculatedPrice = reading.pricePerMinute * duration;
+      if (Math.abs(calculatedPrice - totalPrice) > (reading.pricePerMinute / 2)) {
+        console.warn(`Price discrepancy detected: calculated ${calculatedPrice} vs. received ${totalPrice}`);
       }
       
       // Process payment from client's account balance
