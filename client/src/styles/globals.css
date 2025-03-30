@@ -159,6 +159,13 @@
             drop-shadow(0 0 30px rgba(128, 0, 255, 0.7));
   }
   
+  /* Text glow effect for headings */
+  .text-glow {
+    text-shadow: 0 0 10px rgba(255, 105, 180, 0.7),
+                 0 0 20px rgba(255, 20, 147, 0.5),
+                 0 0 30px rgba(255, 0, 255, 0.3);
+  }
+  
   /* Cursor */
   .sparkle-cursor {
     @apply pointer-events-none fixed z-50 h-6 w-6 -ml-3 -mt-3 mix-blend-difference;

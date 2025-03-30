@@ -128,14 +128,22 @@ export function Header() {
         </div>
         
         {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <nav className="md:hidden pt-4 pb-2 space-y-3">
+        <div 
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+            mobileMenuOpen 
+              ? 'max-h-[500px] opacity-100 border-t border-accent/20 mt-3' 
+              : 'max-h-0 opacity-0'
+          }`}
+        >
+          <nav className="py-3 space-y-3 cosmic-bg backdrop-blur-md rounded-lg">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`block py-2 text-light hover:text-accent transition duration-300 font-playfair ${
-                  location === link.href ? "text-accent" : ""
+                className={`block py-2.5 px-4 text-light hover:text-accent transition duration-300 font-playfair ${
+                  location === link.href 
+                    ? "text-accent border-l-2 border-accent pl-3" 
+                    : ""
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
@@ -144,7 +152,7 @@ export function Header() {
             ))}
             
             {!user && (
-              <div className="flex space-x-3 pt-2">
+              <div className="flex space-x-3 pt-3 px-4">
                 <Link
                   href="/auth"
                   className="flex-1 text-center bg-transparent border border-secondary text-secondary hover:bg-secondary/10 py-2 px-4 rounded-full transition duration-300 celestial-button"
@@ -162,7 +170,7 @@ export function Header() {
               </div>
             )}
           </nav>
-        )}
+        </div>
       </div>
     </header>
   );

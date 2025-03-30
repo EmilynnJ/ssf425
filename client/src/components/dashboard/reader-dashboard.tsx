@@ -61,14 +61,14 @@ export function ReaderDashboard() {
   
   return (
     <DashboardLayout title="Reader Dashboard">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-8">
         <Card className="glow-card">
-          <CardHeader>
-            <CardTitle>Online Status</CardTitle>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-lg md:text-xl">Online Status</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
             <div className="flex items-center justify-between space-x-2">
-              <Label htmlFor="online-status">Available for Readings</Label>
+              <Label htmlFor="online-status" className="text-sm md:text-base">Available for Readings</Label>
               <Switch 
                 id="online-status" 
                 checked={isOnline}
@@ -84,34 +84,34 @@ export function ReaderDashboard() {
         </Card>
         
         <Card className="glow-card">
-          <CardHeader>
-            <CardTitle>Pricing</CardTitle>
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-lg md:text-xl">Pricing</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold mb-2 gold-gradient">
+          <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+            <div className="text-2xl md:text-3xl font-bold mb-2 gold-gradient">
               {user?.pricing ? formatCurrency(user.pricing / 100) : "$0.00"}/min
             </div>
             <Button variant="outline" size="sm">Update Pricing</Button>
           </CardContent>
         </Card>
         
-        <Card className="glow-card">
-          <CardHeader>
-            <CardTitle>Statistics</CardTitle>
+        <Card className="glow-card sm:col-span-2 md:col-span-1">
+          <CardHeader className="p-3 md:p-6">
+            <CardTitle className="text-lg md:text-xl">Statistics</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Readings:</span>
-                <span>{completedReadings.length}</span>
+          <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-1 gap-2 md:gap-2">
+              <div className="flex flex-col md:flex-row md:justify-between">
+                <span className="text-muted-foreground text-xs md:text-sm">Total Readings:</span>
+                <span className="text-sm md:text-base font-medium">{completedReadings.length}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Rating:</span>
-                <span>⭐ {user?.rating || "-"}/5</span>
+              <div className="flex flex-col md:flex-row md:justify-between">
+                <span className="text-muted-foreground text-xs md:text-sm">Rating:</span>
+                <span className="text-sm md:text-base font-medium">⭐ {user?.rating || "-"}/5</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Reviews:</span>
-                <span>{user?.reviewCount || 0}</span>
+              <div className="flex flex-col md:flex-row md:justify-between">
+                <span className="text-muted-foreground text-xs md:text-sm">Reviews:</span>
+                <span className="text-sm md:text-base font-medium">{user?.reviewCount || 0}</span>
               </div>
             </div>
           </CardContent>
@@ -180,40 +180,44 @@ function ReadingCard({ reading, actionLabel }: ReadingCardProps) {
       : new Date();
   
   return (
-    <Card className="glow-card">
+    <Card className="glow-card h-full">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">{reading.notes || "General Reading"}</CardTitle>
-          <Badge className={getStatusColor(reading.status)}>
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+          <CardTitle className="text-lg break-words">{reading.notes || "General Reading"}</CardTitle>
+          <Badge className={`${getStatusColor(reading.status)} whitespace-nowrap`}>
             {reading.status.replace("_", " ")}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Type:</span>
-            <span className="capitalize">{reading.type}</span>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Type:</span>
+            <span className="capitalize text-sm text-right">{reading.type}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Date:</span>
-            <span>{sessionDate.toLocaleDateString()}</span>
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Date:</span>
+            <span className="text-sm text-right">{sessionDate.toLocaleDateString()}</span>
           </div>
           {reading.scheduledFor && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Time:</span>
-              <span>{new Date(reading.scheduledFor).toLocaleTimeString()}</span>
+            <div className="grid grid-cols-2 gap-1">
+              <span className="text-muted-foreground text-sm">Time:</span>
+              <span className="text-sm text-right">{new Date(reading.scheduledFor).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
           )}
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Duration:</span>
+            <span className="text-sm text-right">{reading.duration || "-"} min</span>
+          </div>
           
           {actionLabel && (
-            <Button className="w-full mt-2">
+            <Button className="w-full mt-4 bg-accent hover:bg-accent-dark text-white">
               {actionLabel}
             </Button>
           )}
           
           {reading.status === "in_progress" && (
-            <Button className="w-full mt-2">
+            <Button className="w-full mt-4 bg-purple-500 hover:bg-purple-700 text-white">
               Continue Session
             </Button>
           )}

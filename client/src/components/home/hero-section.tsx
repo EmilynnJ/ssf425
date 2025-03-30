@@ -5,48 +5,54 @@ import { StarField } from "@/components/ui/star-field";
 
 export function HeroSection() {
   return (
-    <div className="flex flex-col items-center text-center mb-20 relative">
+    <div className="flex flex-col items-center text-center py-8 md:py-12 mb-12 md:mb-20 relative overflow-hidden px-4">
       <StarField />
       
-      <h1 className="text-6xl md:text-7xl font-alex-brush mb-4 z-10">
-        <span className="text-accent">Soul</span>
-        <span className="text-secondary">Seer</span>
-      </h1>
-      
-      <div className="w-60 md:w-80 mb-4 z-10">
+      {/* Use the hero image as background for better mobile responsiveness */}
+      <div className="absolute inset-0 flex items-center justify-center overflow-hidden opacity-70">
         <img 
-          src="/assets/images/hero-image.jpg" 
-          alt="SoulSeer Mystic" 
-          className="w-full h-auto rounded-full eye-glow"
+          src="/assets/images/hero-image-new.jpg" 
+          alt="SoulSeer Background" 
+          className="min-w-full min-h-full object-cover"
         />
       </div>
       
-      <p className="text-xl font-playfair text-light/80 mb-8 max-w-2xl z-10">A Community of Gifted Psychics</p>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl z-10">
-        <Link href={PATHS.READERS}>
-          <CelestialButton variant="primary" size="lg" className="w-full">
-            Find Your Reader
-          </CelestialButton>
-        </Link>
+      {/* Content overlay */}
+      <div className="relative z-10 w-full max-w-4xl mx-auto">
+        <h1 className="text-5xl sm:text-6xl md:text-7xl font-alex-brush mb-8 text-glow">
+          <span className="text-accent">Soul</span>
+          <span className="text-secondary">Seer</span>
+        </h1>
         
-        <Link href={PATHS.LIVE}>
-          <CelestialButton variant="secondary" size="lg" className="w-full">
-            Live Streams
-          </CelestialButton>
-        </Link>
+        <p className="text-xl md:text-2xl font-playfair text-white mb-10 max-w-2xl mx-auto">
+          A Community of Gifted Psychics
+        </p>
         
-        <Link href={PATHS.SHOP}>
-          <CelestialButton variant="primary" size="lg" className="w-full">
-            Shop
-          </CelestialButton>
-        </Link>
-        
-        <Link href="/apply">
-          <CelestialButton variant="secondary" size="lg" className="w-full">
-            Apply as Reader
-          </CelestialButton>
-        </Link>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto">
+          <Link href={PATHS.READERS}>
+            <CelestialButton variant="primary" size="lg" className="w-full">
+              Find Your Reader
+            </CelestialButton>
+          </Link>
+          
+          <Link href={PATHS.LIVE}>
+            <CelestialButton variant="secondary" size="lg" className="w-full">
+              Live Streams
+            </CelestialButton>
+          </Link>
+          
+          <Link href={PATHS.SHOP}>
+            <CelestialButton variant="primary" size="lg" className="w-full">
+              Shop
+            </CelestialButton>
+          </Link>
+          
+          <Link href="/apply">
+            <CelestialButton variant="secondary" size="lg" className="w-full">
+              Apply as Reader
+            </CelestialButton>
+          </Link>
+        </div>
       </div>
     </div>
   );

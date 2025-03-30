@@ -97,43 +97,43 @@ function ReadingCard({ reading }: { reading: Reading }) {
       : new Date();
 
   return (
-    <Card className="glow-card">
+    <Card className="glow-card h-full">
       <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">{reading.notes || "General Reading"}</CardTitle>
-          <Badge className={statusColors[reading.status]}>
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+          <CardTitle className="text-lg break-words">{reading.notes || "General Reading"}</CardTitle>
+          <Badge className={`${statusColors[reading.status]} whitespace-nowrap`}>
             {reading.status.replace("_", " ")}
           </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Type:</span>
-            <span className="capitalize">{reading.type}</span>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Type:</span>
+            <span className="capitalize text-sm text-right">{reading.type}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Date:</span>
-            <span>{sessionDate.toLocaleDateString()}</span>
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Date:</span>
+            <span className="text-sm text-right">{sessionDate.toLocaleDateString()}</span>
           </div>
           {reading.scheduledFor && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Time:</span>
-              <span>{new Date(reading.scheduledFor).toLocaleTimeString()}</span>
+            <div className="grid grid-cols-2 gap-1">
+              <span className="text-muted-foreground text-sm">Time:</span>
+              <span className="text-sm text-right">{new Date(reading.scheduledFor).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Duration:</span>
-            <span>{reading.duration || "-"} min</span>
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Duration:</span>
+            <span className="text-sm text-right">{reading.duration || "-"} min</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Price:</span>
-            <span>{reading.totalPrice ? formatCurrency(reading.totalPrice / 100) : "-"}</span>
+          <div className="grid grid-cols-2 gap-1">
+            <span className="text-muted-foreground text-sm">Price:</span>
+            <span className="text-sm text-right">{reading.totalPrice ? formatCurrency(reading.totalPrice / 100) : "-"}</span>
           </div>
           {reading.status === "completed" && reading.completedAt && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Completed:</span>
-              <span>{formatDistance(new Date(reading.completedAt), new Date(), { addSuffix: true })}</span>
+            <div className="grid grid-cols-2 gap-1">
+              <span className="text-muted-foreground text-sm">Completed:</span>
+              <span className="text-sm text-right">{formatDistance(new Date(reading.completedAt), new Date(), { addSuffix: true })}</span>
             </div>
           )}
         </div>
