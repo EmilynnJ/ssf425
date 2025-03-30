@@ -139,6 +139,15 @@
     animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
   
+  .glow-effect {
+    filter: drop-shadow(0 0 8px rgba(255, 0, 128, 0.5));
+    transition: filter 0.3s ease;
+  }
+  
+  .glow-effect:hover {
+    filter: drop-shadow(0 0 12px rgba(255, 0, 128, 0.8));
+  }
+  
   /* Cursor */
   .sparkle-cursor {
     @apply pointer-events-none fixed z-50 h-6 w-6 -ml-3 -mt-3 mix-blend-difference;

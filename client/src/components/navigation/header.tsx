@@ -39,7 +39,12 @@ export function Header() {
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link href={PATHS.HOME} className="flex items-center">
+          <Link href={PATHS.HOME} className="flex items-center gap-2">
+            <img 
+              src="/assets/logos/soulseer_logo.png" 
+              alt="SoulSeer Logo" 
+              className="w-8 h-8 md:w-10 md:h-10 object-contain glow-effect"
+            />
             <span className="text-3xl md:text-4xl font-alex-brush text-accent">SoulSeer</span>
           </Link>
           
