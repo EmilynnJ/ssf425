@@ -15,6 +15,8 @@ import ShopPage from "@/pages/shop-page";
 import CheckoutPage from "@/pages/checkout-page";
 import ReadingSessionPage from "@/pages/reading-session";
 import CommunityPage from "@/pages/community-page";
+import ReadersPage from "@/pages/readers-page";
+import ReaderProfilePage from "@/pages/reader-profile-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
 import "@/styles/globals.css";
@@ -116,8 +118,8 @@ function Router() {
         <ProtectedRoute path="/reading-session/:id" component={ReadingSessionPage} />
         
         {/* Public routes */}
-        <Route path="/readers" component={Readers} />
-        <Route path="/readers/:id" component={ReaderDetails} />
+        <Route path="/readers" component={ReadersPage} />
+        <Route path="/readers/:id" component={ReaderProfilePage} />
         <Route path="/live" component={LiveStreams} />
         <Route path="/live/:id" component={LiveStreamDetails} />
         <Route path="/shop" component={ShopPage} />
