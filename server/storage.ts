@@ -176,7 +176,7 @@ export class MemStorage implements IStorage {
       lastActive: now, 
       isOnline: false,
       reviewCount: 0,
-      karmaPoints: 0,
+      squareCustomerId: null,
       profileImage: insertUser.profileImage || null,
       bio: insertUser.bio || null,
       specialties: insertUser.specialties || null,
@@ -222,7 +222,13 @@ export class MemStorage implements IStorage {
       rating: null,
       review: null,
       scheduledFor: insertReading.scheduledFor ?? null,
-      notes: insertReading.notes ?? null
+      notes: insertReading.notes ?? null,
+      startedAt: null,
+      totalPrice: null,
+      duration: insertReading.duration ?? null,
+      paymentStatus: "pending",
+      paymentId: null,
+      paymentLinkUrl: null
     };
     this.readings.set(id, reading);
     return reading;
@@ -240,7 +246,16 @@ export class MemStorage implements IStorage {
     return Array.from(this.readings.values()).filter(reading => reading.readerId === readerId);
   }
   
-  async updateReading(id: number, readingData: Partial<InsertReading>): Promise<Reading | undefined> {
+  async updateReading(id: number, readingData: Partial<InsertReading> & {
+    startedAt?: Date | null;
+    completedAt?: Date | null;
+    totalPrice?: number | null;
+    paymentStatus?: "pending" | "authorized" | "paid" | "failed" | "refunded" | null;
+    paymentId?: string | null;
+    paymentLinkUrl?: string | null;
+    rating?: number | null;
+    review?: string | null;
+  }): Promise<Reading | undefined> {
     const reading = this.readings.get(id);
     if (!reading) return undefined;
     
@@ -260,7 +275,11 @@ export class MemStorage implements IStorage {
       ...insertProduct,
       id,
       createdAt: new Date(),
-      featured: insertProduct.featured ?? null
+      featured: insertProduct.featured ?? null,
+      isSynced: false,
+      updatedAt: new Date(),
+      squareId: insertProduct.squareId || null,
+      squareVariationId: insertProduct.squareVariationId || null
     };
     this.products.set(id, product);
     return product;
@@ -299,7 +318,11 @@ export class MemStorage implements IStorage {
       ...insertOrder,
       id,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      paymentStatus: "pending",
+      paymentLinkUrl: null,
+      squareOrderId: null,
+      squarePaymentId: null
     };
     this.orders.set(id, order);
     return order;
@@ -488,7 +511,9 @@ export class MemStorage implements IStorage {
     const karmaTransaction: KarmaTransaction = {
       ...transaction,
       id,
-      createdAt: new Date()
+      createdAt: new Date(),
+      relatedEntityId: transaction.relatedEntityId || null,
+      relatedEntityType: transaction.relatedEntityType || null
     };
     this.karmaTransactions.set(id, karmaTransaction);
     return karmaTransaction;
@@ -528,20 +553,14 @@ export class MemStorage implements IStorage {
       relatedEntityType: relatedEntityType || null
     });
     
-    // Update the user's karma balance
+    // Update the user
     const user = await this.getUser(userId);
     if (!user) {
       throw new Error(`User with ID ${userId} not found`);
     }
     
-    const currentKarma = user.karmaPoints || 0;
-    const updatedUser = await this.updateUser(userId, { karmaPoints: currentKarma + amount });
-    
-    if (!updatedUser) {
-      throw new Error(`Failed to update karma points for user ${userId}`);
-    }
-    
-    return updatedUser;
+    // We've removed karma points, so we're just returning the user now
+    return user;
   }
   
   async spendKarmaPoints(
@@ -551,15 +570,10 @@ export class MemStorage implements IStorage {
     relatedEntityId?: number | null, 
     relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
   ): Promise<User> {
-    // Check if the user has enough karma
+    // Check if the user exists
     const user = await this.getUser(userId);
     if (!user) {
       throw new Error(`User with ID ${userId} not found`);
-    }
-    
-    const currentKarma = user.karmaPoints || 0;
-    if (currentKarma < amount) {
-      throw new Error(`Not enough karma points. Required: ${amount}, Available: ${currentKarma}`);
     }
     
     // Create the transaction (with negative amount)
@@ -572,14 +586,8 @@ export class MemStorage implements IStorage {
       relatedEntityType: relatedEntityType || null
     });
     
-    // Update the user's karma balance
-    const updatedUser = await this.updateUser(userId, { karmaPoints: currentKarma - amount });
-    
-    if (!updatedUser) {
-      throw new Error(`Failed to update karma points for user ${userId}`);
-    }
-    
-    return updatedUser;
+    // We've removed karma points, so we're just returning the user now
+    return user;
   }
   
   // Seed data for demonstration
@@ -622,7 +630,7 @@ export class DatabaseStorage implements IStorage {
       lastActive: now,
       isOnline: false,
       reviewCount: 0,
-      karmaPoints: 0
+      squareCustomerId: null
     }).returning();
 
     return createdUser;
@@ -654,12 +662,18 @@ export class DatabaseStorage implements IStorage {
   async createReading(reading: InsertReading): Promise<Reading> {
     const [createdReading] = await db.insert(readings).values({
       ...reading,
+      duration: reading.duration ?? null,
       createdAt: new Date(),
       completedAt: null,
       rating: null,
       review: null,
       scheduledFor: reading.scheduledFor ?? null,
-      notes: reading.notes ?? null
+      notes: reading.notes ?? null,
+      startedAt: null,
+      totalPrice: null,
+      paymentStatus: "pending",
+      paymentId: null,
+      paymentLinkUrl: null
     }).returning();
 
     return createdReading;
@@ -678,7 +692,16 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(readings).where(eq(readings.readerId, readerId));
   }
 
-  async updateReading(id: number, readingData: Partial<InsertReading>): Promise<Reading | undefined> {
+  async updateReading(id: number, readingData: Partial<InsertReading> & {
+    startedAt?: Date | null;
+    completedAt?: Date | null;
+    totalPrice?: number | null;
+    paymentStatus?: "pending" | "authorized" | "paid" | "failed" | "refunded" | null;
+    paymentId?: string | null;
+    paymentLinkUrl?: string | null;
+    rating?: number | null;
+    review?: string | null;
+  }): Promise<Reading | undefined> {
     const [updatedReading] = await db.update(readings)
       .set(readingData)
       .where(eq(readings.id, id))
@@ -689,9 +712,14 @@ export class DatabaseStorage implements IStorage {
 
   // Product methods
   async createProduct(product: InsertProduct): Promise<Product> {
+    const now = new Date();
     const [createdProduct] = await db.insert(products).values({
       ...product,
-      createdAt: new Date()
+      createdAt: now,
+      updatedAt: now,
+      isSynced: false,
+      squareId: product.squareId || null,
+      squareVariationId: product.squareVariationId || null
     }).returning();
     
     return createdProduct;
@@ -725,7 +753,11 @@ export class DatabaseStorage implements IStorage {
     const [createdOrder] = await db.insert(orders).values({
       ...order,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      paymentStatus: "pending",
+      paymentLinkUrl: null,
+      squareOrderId: null,
+      squarePaymentId: null
     }).returning();
     
     return createdOrder;
@@ -944,18 +976,7 @@ export class DatabaseStorage implements IStorage {
       throw new Error(`User with ID ${userId} not found`);
     }
     
-    // Update the user's karma points
-    const currentKarma = user.karmaPoints || 0;
-    const [updatedUser] = await db.update(users)
-      .set({ karmaPoints: currentKarma + amount })
-      .where(eq(users.id, userId))
-      .returning();
-      
-    if (!updatedUser) {
-      throw new Error(`Failed to update karma points for user ${userId}`);
-    }
-    
-    return updatedUser;
+    return user;
   }
   
   async spendKarmaPoints(
@@ -965,15 +986,10 @@ export class DatabaseStorage implements IStorage {
     relatedEntityId?: number | null, 
     relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
   ): Promise<User> {
-    // Check if the user has enough karma
+    // Get the user
     const user = await this.getUser(userId);
     if (!user) {
       throw new Error(`User with ID ${userId} not found`);
-    }
-    
-    const currentKarma = user.karmaPoints || 0;
-    if (currentKarma < amount) {
-      throw new Error(`Not enough karma points. Required: ${amount}, Available: ${currentKarma}`);
     }
     
     // Create the transaction (with negative amount)
@@ -986,17 +1002,7 @@ export class DatabaseStorage implements IStorage {
       relatedEntityType: relatedEntityType || null
     });
     
-    // Update the user's karma balance
-    const [updatedUser] = await db.update(users)
-      .set({ karmaPoints: currentKarma - amount })
-      .where(eq(users.id, userId))
-      .returning();
-      
-    if (!updatedUser) {
-      throw new Error(`Failed to update karma points for user ${userId}`);
-    }
-    
-    return updatedUser;
+    return user;
   }
 }
 

@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { UserUpdate } from "@shared/schema";
+import { createOnDemandReadingPayment, processCompletedReadingPayment, squareConfig } from "./services/square-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -254,10 +255,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         clientId: req.user.id,
         status: "scheduled",
         type: readingData.type,
+        readingMode: "scheduled",
         scheduledFor: readingData.scheduledFor ? new Date(readingData.scheduledFor) : null,
-        duration: readingData.duration,
-        price: readingData.price,
-        notes: readingData.notes || ""
+        duration: readingData.duration || null,
+        pricePerMinute: readingData.pricePerMinute || 100,
+        notes: readingData.notes || null
       });
       
       res.status(201).json(reading);
@@ -697,6 +699,296 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ count });
     } catch (error) {
       res.status(500).json({ message: "Failed to get unread message count" });
+    }
+  });
+
+  // On-demand reading endpoints (pay per minute)
+  
+  // Get Square configuration for frontend
+  app.get("/api/square/config", (req, res) => {
+    res.json({
+      applicationId: squareConfig.applicationId,
+      locationId: squareConfig.locationId
+    });
+  });
+  
+  // Create an on-demand reading session
+  app.post("/api/readings/on-demand", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const { readerId, type } = req.body;
+      
+      if (!readerId || !type || !["chat", "video", "voice"].includes(type)) {
+        return res.status(400).json({ message: "Invalid parameters" });
+      }
+      
+      // Get the reader
+      const reader = await storage.getUser(readerId);
+      if (!reader || reader.role !== "reader") {
+        return res.status(404).json({ message: "Reader not found" });
+      }
+      
+      // Check if reader is online
+      if (!reader.isOnline) {
+        return res.status(400).json({ message: "Reader is not online" });
+      }
+      
+      // Create a new reading record
+      const reading = await storage.createReading({
+        readerId,
+        clientId: req.user.id,
+        status: "waiting_payment",
+        type,
+        readingMode: "on_demand",
+        pricePerMinute: reader.pricing || 100, // Use reader's pricing or default to $1/min
+        duration: null, // Will be set after the reading is completed
+        notes: null
+      });
+      
+      // Create payment link
+      const paymentResult = await createOnDemandReadingPayment(
+        reader.pricing || 100, // in cents
+        req.user.id,
+        req.user.fullName,
+        readerId,
+        reading.id,
+        type
+      );
+      
+      if (!paymentResult.success) {
+        // If payment creation fails, update the reading status to cancelled
+        await storage.updateReading(reading.id, { status: "cancelled" });
+        return res.status(500).json({ message: "Failed to create payment" });
+      }
+      
+      // Update reading with payment link
+      const updatedReading = await storage.updateReading(reading.id, {
+        paymentLinkUrl: paymentResult.paymentLinkUrl
+      });
+      
+      // Notify the reader
+      (global as any).websocket.notifyUser(readerId, {
+        type: 'new_reading_request',
+        reading: updatedReading,
+        client: {
+          id: req.user.id,
+          fullName: req.user.fullName,
+          username: req.user.username
+        },
+        timestamp: Date.now()
+      });
+      
+      res.json({
+        success: true,
+        reading: updatedReading,
+        paymentLink: paymentResult.paymentLinkUrl
+      });
+    } catch (error) {
+      console.error('Error creating on-demand reading:', error);
+      res.status(500).json({ message: "Failed to create on-demand reading" });
+    }
+  });
+  
+  // Start an on-demand reading session (after payment)
+  app.post("/api/readings/:id/start", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Check if user is authorized (client or reader of this reading)
+      if (req.user.id !== reading.clientId && req.user.id !== reading.readerId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      
+      // Check if reading is in the right status
+      if (reading.status !== "waiting_payment" && reading.status !== "payment_completed") {
+        return res.status(400).json({ 
+          message: "Reading can't be started. Current status: " + reading.status 
+        });
+      }
+      
+      // Update reading status and start time
+      const updatedReading = await storage.updateReading(id, {
+        status: "in_progress",
+        startedAt: new Date()
+      });
+      
+      // Notify both participants
+      (global as any).websocket.notifyUser(reading.clientId, {
+        type: 'reading_started',
+        reading: updatedReading,
+        timestamp: Date.now()
+      });
+      
+      (global as any).websocket.notifyUser(reading.readerId, {
+        type: 'reading_started',
+        reading: updatedReading,
+        timestamp: Date.now()
+      });
+      
+      res.json(updatedReading);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to start reading" });
+    }
+  });
+  
+  // Complete an on-demand reading session and process payment
+  app.post("/api/readings/:id/complete", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // For security, only the reader can complete a reading session
+      if (req.user.id !== reading.readerId) {
+        return res.status(403).json({ message: "Only the reader can complete a reading" });
+      }
+      
+      // Check if reading is in progress
+      if (reading.status !== "in_progress") {
+        return res.status(400).json({ message: "Reading is not in progress" });
+      }
+      
+      const { durationMinutes } = req.body;
+      
+      if (!durationMinutes || durationMinutes <= 0) {
+        return res.status(400).json({ message: "Invalid duration" });
+      }
+      
+      // Calculate total price
+      const totalPrice = durationMinutes * reading.pricePerMinute;
+      
+      // Get client info
+      const client = await storage.getUser(reading.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Process payment for the completed reading
+      const paymentResult = await processCompletedReadingPayment(
+        reading.id,
+        reading.readerId,
+        reading.clientId,
+        client.fullName,
+        durationMinutes,
+        reading.pricePerMinute
+      );
+      
+      if (!paymentResult.success) {
+        return res.status(500).json({ message: "Failed to process payment" });
+      }
+      
+      // Update reading with completion details
+      const now = new Date();
+      const updatedReading = await storage.updateReading(id, {
+        status: "completed",
+        completedAt: now,
+        duration: durationMinutes,
+        totalPrice: totalPrice,
+        paymentStatus: "paid",
+        paymentId: paymentResult.orderId
+      });
+      
+      // Notify client
+      (global as any).websocket.notifyUser(reading.clientId, {
+        type: 'reading_completed',
+        reading: updatedReading,
+        timestamp: Date.now(),
+        totalAmount: totalPrice,
+        durationMinutes: durationMinutes
+      });
+      
+      res.json({
+        success: true,
+        reading: updatedReading,
+        payment: paymentResult
+      });
+    } catch (error) {
+      console.error('Error completing reading:', error);
+      res.status(500).json({ message: "Failed to complete reading" });
+    }
+  });
+  
+  // Rate a completed reading
+  app.post("/api/readings/:id/rate", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
+      
+      const reading = await storage.getReading(id);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Only the client can rate a reading
+      if (req.user.id !== reading.clientId) {
+        return res.status(403).json({ message: "Only the client can rate a reading" });
+      }
+      
+      // Check if reading is completed
+      if (reading.status !== "completed") {
+        return res.status(400).json({ message: "Reading must be completed before rating" });
+      }
+      
+      const { rating, review } = req.body;
+      
+      if (rating === undefined || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+      
+      // Update reading with rating and review
+      const updatedReading = await storage.updateReading(id, { rating, review });
+      
+      // Update reader's review count
+      const reader = await storage.getUser(reading.readerId);
+      if (reader) {
+        await storage.updateUser(reading.readerId, { 
+          reviewCount: (reader.reviewCount || 0) + 1 
+        });
+      }
+      
+      // Notify reader about the new review
+      (global as any).websocket.notifyUser(reading.readerId, {
+        type: 'new_review',
+        reading: updatedReading,
+        rating,
+        review,
+        timestamp: Date.now()
+      });
+      
+      res.json(updatedReading);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to rate reading" });
     }
   });
 

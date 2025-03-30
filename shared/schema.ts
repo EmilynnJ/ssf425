@@ -12,14 +12,14 @@ export const users = pgTable("users", {
   role: text("role", { enum: ["client", "reader", "admin"] }).notNull().default("client"),
   bio: text("bio"),
   specialties: text("specialties").array(),
-  pricing: integer("pricing"),
+  pricing: integer("pricing"), // Base price per minute in cents
   rating: integer("rating"),
   reviewCount: integer("review_count").default(0),
   verified: boolean("verified").default(false),
-  karmaPoints: integer("karma_points").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   lastActive: timestamp("last_active").defaultNow(),
   isOnline: boolean("is_online").default(false),
+  squareCustomerId: text("square_customer_id"), // Square customer ID for payment processing
 });
 
 export const messages = pgTable("messages", {
@@ -37,12 +37,18 @@ export const readings = pgTable("readings", {
   id: serial("id").primaryKey(),
   readerId: integer("reader_id").notNull().references(() => users.id),
   clientId: integer("client_id").notNull().references(() => users.id),
-  status: text("status", { enum: ["scheduled", "in_progress", "completed", "cancelled"] }).notNull(),
+  status: text("status", { enum: ["scheduled", "waiting_payment", "payment_completed", "in_progress", "completed", "cancelled"] }).notNull(),
   type: text("type", { enum: ["chat", "video", "voice"] }).notNull(),
+  readingMode: text("reading_mode", { enum: ["scheduled", "on_demand"] }).notNull(),
   scheduledFor: timestamp("scheduled_for"),
-  duration: integer("duration").notNull(), // in minutes
-  price: integer("price").notNull(), // in cents
+  startedAt: timestamp("started_at"),
+  duration: integer("duration"), // in minutes
+  pricePerMinute: integer("price_per_minute").notNull(), // in cents
+  totalPrice: integer("total_price"), // in cents, calculated after reading completes
   notes: text("notes"),
+  paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
+  paymentId: text("payment_id"), // Square payment ID
+  paymentLinkUrl: text("payment_link_url"), // URL for client to pay
   rating: integer("rating"),
   review: text("review"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -58,7 +64,11 @@ export const products = pgTable("products", {
   category: text("category").notNull(),
   stock: integer("stock").notNull(),
   featured: boolean("featured").default(false),
+  squareId: text("square_id"), // Square catalog item ID
+  squareVariationId: text("square_variation_id"), // Square catalog item variation ID
+  isSynced: boolean("is_synced").default(false), // Indicates if product is synced with Square
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const orders = pgTable("orders", {
@@ -67,6 +77,10 @@ export const orders = pgTable("orders", {
   status: text("status", { enum: ["pending", "processing", "shipped", "delivered", "cancelled"] }).notNull(),
   total: integer("total").notNull(), // in cents
   shippingAddress: json("shipping_address").notNull(),
+  paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
+  squareOrderId: text("square_order_id"), // Square order ID
+  squarePaymentId: text("square_payment_id"), // Square payment ID
+  paymentLinkUrl: text("payment_link_url"), // URL for client to pay 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -133,13 +147,37 @@ export const insertUserSchema = createInsertSchema(users)
   .omit({ id: true, createdAt: true, lastActive: true, isOnline: true, reviewCount: true });
 
 export const insertReadingSchema = createInsertSchema(readings)
-  .omit({ id: true, createdAt: true, completedAt: true, rating: true, review: true });
+  .omit({ 
+    id: true, 
+    createdAt: true, 
+    completedAt: true, 
+    rating: true, 
+    review: true, 
+    totalPrice: true, 
+    startedAt: true, 
+    paymentStatus: true,
+    paymentId: true,
+    paymentLinkUrl: true
+  });
 
 export const insertProductSchema = createInsertSchema(products)
-  .omit({ id: true, createdAt: true });
+  .omit({ 
+    id: true, 
+    createdAt: true, 
+    updatedAt: true,
+    isSynced: true
+  });
 
 export const insertOrderSchema = createInsertSchema(orders)
-  .omit({ id: true, createdAt: true, updatedAt: true });
+  .omit({ 
+    id: true, 
+    createdAt: true, 
+    updatedAt: true,
+    paymentStatus: true,
+    squareOrderId: true,
+    squarePaymentId: true,
+    paymentLinkUrl: true
+  });
 
 export const insertOrderItemSchema = createInsertSchema(orderItems)
   .omit({ id: true });
@@ -165,7 +203,8 @@ export type User = typeof users.$inferSelect;
 export type UserUpdate = Partial<InsertUser> & {
   isOnline?: boolean;
   lastActive?: Date;
-  karmaPoints?: number;
+  squareCustomerId?: string;
+  reviewCount?: number;
 };
 
 export type InsertReading = z.infer<typeof insertReadingSchema>;
