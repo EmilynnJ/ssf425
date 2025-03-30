@@ -24,11 +24,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Broadcast a message to all connected clients
   const broadcastToAll = (message: any) => {
     const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+    console.log(`Broadcasting message to all clients: ${messageStr}`);
+    
+    let sentCount = 0;
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
+        try {
+          client.send(messageStr);
+          sentCount++;
+        } catch (error) {
+          console.error("Error sending message to client:", error);
+        }
       }
     });
+    
+    console.log(`Successfully sent message to ${sentCount} clients`);
   };
   
   // Send a notification to a specific user if they're connected
@@ -95,11 +105,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Handle ping messages
         if (data.type === 'ping') {
+          console.log(`Received ping from client ${clientId}, sending pong`);
           ws.send(JSON.stringify({ 
             type: 'pong', 
             timestamp: data.timestamp,
             serverTime: Date.now()
           }));
+        }
+        
+        // Handle chat messages (direct client-to-client communication)
+        else if (data.type === 'chat_message' && data.readingId) {
+          console.log(`Received chat message for reading ${data.readingId} from client ${clientId}`);
+          
+          // Broadcast to all connected clients
+          broadcastToAll({
+            type: 'chat_message',
+            readingId: data.readingId,
+            senderId: data.senderId || userId,
+            senderName: data.senderName,
+            message: data.message,
+            timestamp: Date.now()
+          });
         }
         
         // Handle authentication
