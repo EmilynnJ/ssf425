@@ -157,7 +157,7 @@ export default function ShopPage() {
             <Card key={product.id} className="glow-card overflow-hidden bg-primary-dark/40 border-accent/20">
               <div className="h-48 overflow-hidden">
                 <img 
-                  src={product.imageUrl} 
+                  src={product.image_url} 
                   alt={product.name} 
                   className="w-full h-full object-cover transition-transform hover:scale-105"
                 />
