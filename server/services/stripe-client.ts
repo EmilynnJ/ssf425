@@ -155,7 +155,7 @@ export async function createOnDemandReadingPayment(
       success: true,
       clientSecret: paymentIntent.client_secret,
       paymentIntentId: paymentIntent.id,
-      paymentLinkUrl: `/checkout?readingId=${readingId}&paymentIntentId=${paymentIntent.id}`,
+      paymentLinkUrl: `/reading-session/${readingId}?paymentIntentId=${paymentIntent.id}`,
       amount: initialAmount
     };
   } catch (error: any) {
