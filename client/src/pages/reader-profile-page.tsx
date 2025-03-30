@@ -30,6 +30,13 @@ export default function ReaderProfilePage() {
   const [activeTab, setActiveTab] = useState("about");
   const [readingType, setReadingType] = useState<"chat" | "voice" | "video">("chat");
   const [isCreatingReading, setIsCreatingReading] = useState(false);
+  const [scheduledReadingOptions, setScheduledReadingOptions] = useState({
+    type: "chat" as "chat" | "voice" | "video",
+    duration: 30,
+    date: new Date(new Date().setDate(new Date().getDate() + 1)),
+    notes: ""
+  });
+  const [isSchedulingReading, setIsSchedulingReading] = useState(false);
   
   // Fetch reader data
   const { data: reader, isLoading, error } = useQuery<Omit<User, 'password'>>({
@@ -101,6 +108,77 @@ export default function ReaderProfilePage() {
     }
     
     setIsCreatingReading(false);
+  };
+  
+  // Handle scheduling a reading
+  const handleScheduleReading = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please log in to schedule a reading with this reader.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+    
+    if (!reader) return;
+    
+    setIsSchedulingReading(true);
+    
+    try {
+      // Calculate total price based on duration and type
+      const basePrice = (
+        scheduledReadingOptions.type === "chat" 
+          ? (reader.pricingChat || reader.pricing || 0)
+          : scheduledReadingOptions.type === "voice" 
+            ? (reader.pricingVoice || (reader.pricing ? reader.pricing + 100 : 0))
+            : (reader.pricingVideo || (reader.pricing ? reader.pricing + 200 : 0))
+      );
+      
+      const totalPrice = basePrice * scheduledReadingOptions.duration;
+      
+      const response = await apiRequest("POST", "/api/readings/schedule", {
+        readerId: reader.id,
+        type: scheduledReadingOptions.type,
+        duration: scheduledReadingOptions.duration,
+        scheduledFor: scheduledReadingOptions.date,
+        notes: scheduledReadingOptions.notes,
+        price: totalPrice
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to schedule reading");
+      }
+      
+      const data = await response.json();
+      
+      if (data.paymentLink) {
+        // Redirect to payment
+        window.location.href = data.paymentLink;
+      } else {
+        toast({
+          title: "Reading Scheduled",
+          description: "Your reading has been successfully scheduled.",
+        });
+        
+        // Refresh readings data
+        queryClient.invalidateQueries({ queryKey: ['/api/readings/client'] });
+        
+        // Switch to dashboard tab
+        navigate("/dashboard");
+      }
+      
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to schedule reading. Please try again.",
+        variant: "destructive",
+      });
+    }
+    
+    setIsSchedulingReading(false);
   };
   
   // Format price from cents to dollars
@@ -467,6 +545,154 @@ export default function ReaderProfilePage() {
                       {reader.isOnline 
                         ? 'This reader is available for immediate readings.' 
                         : 'This reader is not currently available. Please check back later.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mb-8">
+                <h3 className="text-lg font-cinzel text-light mb-3">Schedule a Reading</h3>
+                <div className="p-5 rounded-lg bg-primary-dark/20 border border-accent/30">
+                  <p className="text-light/80 text-sm mb-4">
+                    Book a set time with {reader.fullName} for a fixed-price reading. 
+                    Choose your preferred reading method, duration, and date.
+                  </p>
+                  
+                  <div className="space-y-4 mb-5">
+                    <div>
+                      <label className="text-light font-medium mb-1 block">Reading Type</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setScheduledReadingOptions(prev => ({ ...prev, type: "chat" }))}
+                          className={`px-4 py-2 rounded-md flex items-center ${
+                            scheduledReadingOptions.type === "chat" 
+                              ? "bg-accent/30 text-accent border border-accent/50" 
+                              : "bg-primary-dark/30 text-light/70 border border-accent/10 hover:bg-primary-dark/50"
+                          }`}
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Text Chat
+                        </button>
+                        
+                        <button
+                          onClick={() => setScheduledReadingOptions(prev => ({ ...prev, type: "voice" }))}
+                          className={`px-4 py-2 rounded-md flex items-center ${
+                            scheduledReadingOptions.type === "voice" 
+                              ? "bg-accent/30 text-accent border border-accent/50" 
+                              : "bg-primary-dark/30 text-light/70 border border-accent/10 hover:bg-primary-dark/50"
+                          }`}
+                        >
+                          <Phone className="w-4 h-4 mr-2" />
+                          Voice Call
+                        </button>
+                        
+                        <button
+                          onClick={() => setScheduledReadingOptions(prev => ({ ...prev, type: "video" }))}
+                          className={`px-4 py-2 rounded-md flex items-center ${
+                            scheduledReadingOptions.type === "video" 
+                              ? "bg-accent/30 text-accent border border-accent/50" 
+                              : "bg-primary-dark/30 text-light/70 border border-accent/10 hover:bg-primary-dark/50"
+                          }`}
+                        >
+                          <Video className="w-4 h-4 mr-2" />
+                          Video Call
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="text-light font-medium mb-1 block">Duration (minutes)</label>
+                      <select 
+                        value={scheduledReadingOptions.duration} 
+                        onChange={(e) => setScheduledReadingOptions(prev => ({ 
+                          ...prev, 
+                          duration: parseInt(e.target.value) 
+                        }))}
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light"
+                      >
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="45">45 minutes</option>
+                        <option value="60">60 minutes</option>
+                        <option value="90">90 minutes</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="text-light font-medium mb-1 block">Date and Time</label>
+                      <input 
+                        type="datetime-local" 
+                        value={scheduledReadingOptions.date.toISOString().slice(0, 16)} 
+                        onChange={(e) => setScheduledReadingOptions(prev => ({ 
+                          ...prev, 
+                          date: new Date(e.target.value) 
+                        }))}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="text-light font-medium mb-1 block">Notes for the Reader (Optional)</label>
+                      <textarea 
+                        value={scheduledReadingOptions.notes} 
+                        onChange={(e) => setScheduledReadingOptions(prev => ({ 
+                          ...prev, 
+                          notes: e.target.value 
+                        }))}
+                        placeholder="Share any specific topics or questions you'd like to cover in your reading."
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light h-24"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-accent/10 pt-4">
+                    <h4 className="text-accent font-medium mb-2">Price Summary</h4>
+                    <div className="flex justify-between mb-1 text-light/80 text-sm">
+                      <span>Base rate ({scheduledReadingOptions.type}):</span>
+                      <span>{formatPrice(
+                        scheduledReadingOptions.type === "chat" 
+                          ? (reader.pricingChat || reader.pricing || 0)
+                          : scheduledReadingOptions.type === "voice" 
+                            ? (reader.pricingVoice || (reader.pricing ? reader.pricing + 100 : 0))
+                            : (reader.pricingVideo || (reader.pricing ? reader.pricing + 200 : 0))
+                      )}/min</span>
+                    </div>
+                    <div className="flex justify-between mb-1 text-light/80 text-sm">
+                      <span>Duration:</span>
+                      <span>{scheduledReadingOptions.duration} minutes</span>
+                    </div>
+                    <div className="flex justify-between text-light font-medium mt-2 pt-2 border-t border-accent/10">
+                      <span>Total:</span>
+                      <span>{formatPrice(
+                        (scheduledReadingOptions.type === "chat" 
+                          ? (reader.pricingChat || reader.pricing || 0)
+                          : scheduledReadingOptions.type === "voice" 
+                            ? (reader.pricingVoice || (reader.pricing ? reader.pricing + 100 : 0))
+                            : (reader.pricingVideo || (reader.pricing ? reader.pricing + 200 : 0))
+                        ) * scheduledReadingOptions.duration
+                      )}</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <CelestialButton
+                      onClick={handleScheduleReading}
+                      className="w-full"
+                      disabled={isSchedulingReading}
+                    >
+                      {isSchedulingReading ? (
+                        <>
+                          <div className="animate-spin w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        "Schedule and Pay"
+                      )}
+                    </CelestialButton>
+                    
+                    <p className="text-light/60 text-xs text-center mt-2">
+                      You'll be charged the full amount once the reader confirms your appointment.
                     </p>
                   </div>
                 </div>

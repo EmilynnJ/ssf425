@@ -1269,6 +1269,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Schedule a reading (fixed price one-time payment)
+  app.post("/api/readings/schedule", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const { readerId, type, duration, scheduledFor, notes, price } = req.body;
+      
+      if (!readerId || !type || !["chat", "video", "voice"].includes(type)) {
+        return res.status(400).json({ message: "Invalid parameters" });
+      }
+      
+      // Validate required fields
+      if (!duration || isNaN(duration) || duration <= 0) {
+        return res.status(400).json({ message: "Valid duration is required" });
+      }
+      
+      if (!scheduledFor) {
+        return res.status(400).json({ message: "Scheduled date and time is required" });
+      }
+      
+      if (!price || isNaN(price) || price <= 0) {
+        return res.status(400).json({ message: "Valid price is required" });
+      }
+      
+      // Get the reader
+      const reader = await storage.getUser(readerId);
+      if (!reader || reader.role !== "reader") {
+        return res.status(404).json({ message: "Reader not found" });
+      }
+      
+      // Validate scheduled date (must be in the future)
+      const scheduledDate = new Date(scheduledFor);
+      if (isNaN(scheduledDate.getTime()) || scheduledDate <= new Date()) {
+        return res.status(400).json({ message: "Scheduled date must be in the future" });
+      }
+      
+      const clientId = req.user.id;
+      
+      // Create a Stripe payment intent for the full amount
+      try {
+        const stripeCustomerId = req.user.stripeCustomerId;
+        let customerId = stripeCustomerId;
+        
+        // Create a new Stripe customer if the user doesn't have one
+        if (!customerId) {
+          const customer = await stripeClient.customers.create({
+            email: req.user.email,
+            name: req.user.fullName || req.user.username,
+          });
+          customerId = customer.id;
+          
+          // Update user with Stripe customer ID
+          await storage.updateUser(clientId, {
+            stripeCustomerId: customerId
+          });
+        }
+        
+        // Create a payment intent for the full reading cost
+        const paymentIntent = await stripeClient.paymentIntents.create({
+          amount: price,
+          currency: 'usd',
+          customer: customerId,
+          payment_method_types: ['card'],
+          metadata: {
+            readingType: 'scheduled',
+            clientId: clientId.toString(),
+            readerId: readerId.toString(),
+            type,
+            duration: duration.toString(),
+            scheduledFor: scheduledDate.toISOString(),
+          },
+        });
+        
+        // Create the reading in "waiting_payment" status
+        const reading = await storage.createReading({
+          readerId,
+          clientId,
+          type,
+          status: "waiting_payment",
+          price: price / duration, // Store the per-minute rate
+          duration,
+          totalPrice: price,
+          scheduledFor: scheduledDate,
+          notes: notes || null,
+          readingMode: "scheduled",
+          stripePaymentIntentId: paymentIntent.id
+        });
+        
+        // Notify the reader
+        (global as any).websocket.notifyUser(readerId, {
+          type: 'new_scheduled_reading',
+          reading,
+          client: {
+            id: req.user.id,
+            fullName: req.user.fullName,
+            username: req.user.username
+          },
+          timestamp: Date.now()
+        });
+        
+        // Return the client secret for the payment intent
+        return res.status(201).json({ 
+          reading,
+          clientSecret: paymentIntent.client_secret,
+          paymentLink: `/checkout?clientSecret=${paymentIntent.client_secret}&readingId=${reading.id}`
+        });
+        
+      } catch (stripeError) {
+        console.error("Stripe error creating payment intent:", stripeError);
+        return res.status(400).json({ 
+          message: "Payment processing error",
+          error: stripeError.message 
+        });
+      }
+      
+    } catch (error) {
+      console.error("Error scheduling reading:", error);
+      return res.status(500).json({ message: "Failed to schedule reading" });
+    }
+  });
+  
   // Start an on-demand reading session (after payment)
   app.post("/api/readings/:id/start", async (req, res) => {
     if (!req.isAuthenticated()) {

@@ -60,7 +60,7 @@ export function ReaderCard({ reader }: ReaderCardProps) {
         {/* Pricing */}
         {reader.pricing && (
           <p className="text-secondary text-xs font-cinzel">
-            ${reader.pricing}/min
+            ${(reader.pricing / 100).toFixed(2)}/min
           </p>
         )}
       </div>

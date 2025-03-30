@@ -50,12 +50,12 @@ export function Header() {
           </Link>
           
           {/* Navigation - Desktop */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-light hover:text-accent transition duration-300 font-playfair ${
+                className={`text-light hover:text-accent transition duration-300 font-playfair text-sm xl:text-base ${
                   location === link.href ? "text-accent" : ""
                 }`}
               >
@@ -103,13 +103,13 @@ export function Header() {
               </DropdownMenu>
             ) : (
               <>
-                <Link href="/auth" className="hidden md:block">
-                  <CelestialButton variant="secondary" size="default">
+                <Link href="/auth" className="hidden lg:block">
+                  <CelestialButton variant="secondary" size="sm" className="text-sm">
                     Login
                   </CelestialButton>
                 </Link>
-                <Link href="/auth" className="hidden md:block">
-                  <CelestialButton variant="primary" size="default">
+                <Link href="/auth" className="hidden lg:block">
+                  <CelestialButton className="text-sm">
                     Get Started
                   </CelestialButton>
                 </Link>
@@ -119,7 +119,7 @@ export function Header() {
             {/* Mobile Menu Button */}
             <button
               onClick={toggleMobileMenu}
-              className="md:hidden text-light focus:outline-none"
+              className="lg:hidden text-light focus:outline-none"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
               {mobileMenuOpen ? (
@@ -133,7 +133,7 @@ export function Header() {
         
         {/* Mobile Navigation */}
         <div 
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
             mobileMenuOpen 
               ? 'max-h-[500px] opacity-100 border-t border-accent/20 mt-3' 
               : 'max-h-0 opacity-0'
