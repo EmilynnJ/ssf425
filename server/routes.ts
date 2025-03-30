@@ -1188,6 +1188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         readingMode: "on_demand",
         pricePerMinute: pricePerMinute,
         duration: 0, // Start with 0 and track actual duration during the session
+        price: 0, // Database requires this field (legacy)
         totalPrice: 0, // Will be calculated based on duration after the reading is completed
         notes: null
       });

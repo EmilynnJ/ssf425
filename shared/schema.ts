@@ -23,7 +23,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   lastActive: timestamp("last_active").defaultNow(),
   isOnline: boolean("is_online").default(false),
-  squareCustomerId: text("square_customer_id"), // Square customer ID for payment processing
+  // No longer using Square - only Stripe
+  // stripeCustomerId field already exists
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID for payment processing
 });
 
@@ -46,11 +47,12 @@ export const readings = pgTable("readings", {
   type: text("type", { enum: ["chat", "video", "voice"] }).notNull(),
   readingMode: text("reading_mode", { enum: ["scheduled", "on_demand"] }).notNull(),
   scheduledFor: timestamp("scheduled_for"),
-  startedAt: timestamp("started_at"),
-  duration: integer("duration"), // in minutes
+  duration: integer("duration").notNull(), // in minutes
+  price: integer("price").notNull(), // Legacy price field (required by database)
   pricePerMinute: integer("price_per_minute").notNull(), // in cents
   totalPrice: integer("total_price"), // in cents, calculated after reading completes
   notes: text("notes"),
+  startedAt: timestamp("started_at"),
   paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
   paymentId: text("payment_id"), // Stripe payment intent ID
   stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID
