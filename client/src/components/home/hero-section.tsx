@@ -23,15 +23,27 @@ export function HeroSection() {
       
       <p className="text-xl font-playfair text-light/80 mb-8 max-w-2xl z-10">A Community of Gifted Psychics</p>
       
-      <div className="flex flex-wrap justify-center gap-4 z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl z-10">
         <Link href={PATHS.READERS}>
-          <CelestialButton variant="primary" size="lg">
+          <CelestialButton variant="primary" size="lg" className="w-full">
             Find Your Reader
           </CelestialButton>
         </Link>
         
+        <Link href={PATHS.LIVE}>
+          <CelestialButton variant="secondary" size="lg" className="w-full">
+            Live Streams
+          </CelestialButton>
+        </Link>
+        
+        <Link href={PATHS.SHOP}>
+          <CelestialButton variant="primary" size="lg" className="w-full">
+            Shop
+          </CelestialButton>
+        </Link>
+        
         <Link href="/apply">
-          <CelestialButton variant="secondary" size="lg">
+          <CelestialButton variant="secondary" size="lg" className="w-full">
             Apply as Reader
           </CelestialButton>
         </Link>
