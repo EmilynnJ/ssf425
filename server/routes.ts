@@ -45,6 +45,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
   
+  // Make WebSocket methods available globally
+  (global as any).websocket = {
+    broadcastToAll,
+    notifyUser
+  };
+  
   // Broadcast activity to keep readings page updated in real-time
   const broadcastReaderActivity = async (readerId: number, status: string) => {
     try {
