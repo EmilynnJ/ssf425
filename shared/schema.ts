@@ -49,8 +49,8 @@ export const readings = pgTable("readings", {
   totalPrice: integer("total_price"), // in cents, calculated after reading completes
   notes: text("notes"),
   paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
-  paymentId: text("payment_id"), // Square payment ID
-  paymentLinkUrl: text("payment_link_url"), // URL for client to pay
+  paymentId: text("payment_id"), // Stripe payment intent ID
+  stripeCustomerId: text("stripe_customer_id"), // Stripe customer ID
   rating: integer("rating"),
   review: text("review"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -66,11 +66,9 @@ export const products = pgTable("products", {
   category: text("category").notNull(),
   stock: integer("stock").notNull(),
   featured: boolean("featured").default(false),
-  squareId: text("square_id"), // Square catalog item ID
-  squareVariationId: text("square_variation_id"), // Square catalog item variation ID
-  isSynced: boolean("is_synced").default(false), // Indicates if product is synced with Square
+  stripeProductId: text("stripe_product_id"), // Stripe product ID
+  stripePriceId: text("stripe_price_id"), // Stripe price ID
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const orders = pgTable("orders", {
@@ -80,11 +78,9 @@ export const orders = pgTable("orders", {
   total: integer("total").notNull(), // in cents
   shippingAddress: json("shipping_address").notNull(),
   paymentStatus: text("payment_status", { enum: ["pending", "authorized", "paid", "failed", "refunded"] }).default("pending"),
-  squareOrderId: text("square_order_id"), // Square order ID
-  squarePaymentId: text("square_payment_id"), // Square payment ID
-  paymentLinkUrl: text("payment_link_url"), // URL for client to pay 
+  stripePaymentIntentId: text("stripe_payment_intent_id"), // Stripe payment intent ID
+  stripeSessionId: text("stripe_session_id"), // Stripe checkout session ID
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const orderItems = pgTable("order_items", {
@@ -159,26 +155,24 @@ export const insertReadingSchema = createInsertSchema(readings)
     startedAt: true, 
     paymentStatus: true,
     paymentId: true,
-    paymentLinkUrl: true
+    stripeCustomerId: true
   });
 
 export const insertProductSchema = createInsertSchema(products)
   .omit({ 
     id: true, 
-    createdAt: true, 
-    updatedAt: true,
-    isSynced: true
+    createdAt: true,
+    stripeProductId: true,
+    stripePriceId: true
   });
 
 export const insertOrderSchema = createInsertSchema(orders)
   .omit({ 
     id: true, 
-    createdAt: true, 
-    updatedAt: true,
+    createdAt: true,
     paymentStatus: true,
-    squareOrderId: true,
-    squarePaymentId: true,
-    paymentLinkUrl: true
+    stripePaymentIntentId: true,
+    stripeSessionId: true
   });
 
 export const insertOrderItemSchema = createInsertSchema(orderItems)
@@ -205,7 +199,6 @@ export type User = typeof users.$inferSelect;
 export type UserUpdate = Partial<InsertUser> & {
   isOnline?: boolean;
   lastActive?: Date;
-  squareCustomerId?: string;
   stripeCustomerId?: string;
   accountBalance?: number;
   reviewCount?: number;
