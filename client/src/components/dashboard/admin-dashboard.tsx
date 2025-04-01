@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Reading } from "@shared/schema";
-import { Loader2, User as UserIcon, BookOpen, Users } from "lucide-react";
+import { User, Reading, Product } from "@shared/schema";
+import { Loader2, User as UserIcon, BookOpen, Users, Package, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Table,
   TableBody,
@@ -212,6 +214,7 @@ export function AdminDashboard() {
         <TabsList>
           <TabsTrigger value="readings">All Readings</TabsTrigger>
           <TabsTrigger value="readers">Reader Performance</TabsTrigger>
+          <TabsTrigger value="products">Products</TabsTrigger>
         </TabsList>
 
         <TabsContent value="readings" className="space-y-4">
@@ -329,7 +332,154 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="products" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shop Products</CardTitle>
+              <CardDescription>
+                Manage products and sync with Stripe catalog
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-6">
+              {/* Products Data and Management */}
+              <ProductsManagement />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// Create a separate component for Products Management to keep the main component clean
+function ProductsManagement() {
+  const { toast } = useToast();
+  
+  // Fetch all products
+  const {
+    data: products,
+    error: productsError,
+    isLoading: productsLoading,
+    refetch: refetchProducts,
+  } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  // Mutation for syncing products with Stripe
+  const syncProductsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/products/sync-with-stripe");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to sync products with Stripe");
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Products Synced",
+        description: "Products have been successfully synced with Stripe catalog",
+        variant: "default",
+      });
+      // Refresh the products list after syncing
+      refetchProducts();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (productsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-48">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (productsError) {
+    return (
+      <div className="text-center p-6 text-red-800">
+        <p>Error loading products. Please try again later.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center px-4 sm:px-0">
+        <div className="text-sm text-muted-foreground">
+          {products?.length || 0} {products?.length === 1 ? 'product' : 'products'} in catalog
+        </div>
+        <Button 
+          onClick={() => syncProductsMutation.mutate()}
+          disabled={syncProductsMutation.isPending}
+          className="flex items-center gap-2"
+        >
+          {syncProductsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          <RefreshCw className="h-4 w-4" />
+          Sync with Stripe
+        </Button>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <Table>
+          <TableCaption>Shop products inventory</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">ID</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="hidden md:table-cell">Description</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead className="text-center">Stock</TableHead>
+              <TableHead className="text-center">Featured</TableHead>
+              <TableHead className="hidden md:table-cell">Stripe ID</TableHead>
+              <TableHead className="text-right">Price</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {products && products.length > 0 ? (
+              products.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell className="font-medium">{product.id}</TableCell>
+                  <TableCell>{product.name}</TableCell>
+                  <TableCell className="hidden md:table-cell max-w-[250px] truncate">
+                    {product.description}
+                  </TableCell>
+                  <TableCell className="capitalize">{product.category}</TableCell>
+                  <TableCell className="text-center">{product.stock}</TableCell>
+                  <TableCell className="text-center">
+                    {product.featured ? "✓" : "—"}
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {product.stripeProductId ? (
+                      <span className="text-xs text-green-600 whitespace-nowrap truncate max-w-[150px] inline-block">
+                        {product.stripeProductId.substring(0, 14)}...
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-600">Not synced</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatCurrency(product.price)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  No products found
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

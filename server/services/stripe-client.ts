@@ -167,6 +167,134 @@ export async function createOnDemandReadingPayment(
   }
 }
 
+export async function fetchStripeProducts() {
+  try {
+    const products = await stripe.products.list({
+      active: true,
+      expand: ['data.default_price']
+    });
+    
+    return products.data.map(product => {
+      const price = product.default_price as Stripe.Price;
+      return {
+        stripeProductId: product.id,
+        stripePriceId: price?.id,
+        name: product.name,
+        description: product.description || '',
+        price: price?.unit_amount || 0, // in cents
+        imageUrl: product.images?.[0] || 'https://placehold.co/600x400?text=No+Image',
+        category: product.metadata?.category || 'other',
+        stock: parseInt(product.metadata?.stock || '100'),
+        featured: product.metadata?.featured === 'true'
+      };
+    });
+  } catch (error: any) {
+    console.error('Error fetching Stripe products:', error);
+    throw new Error(`Failed to fetch Stripe products: ${error.message}`);
+  }
+}
+
+export async function syncProductWithStripe(product: {
+  id: number;
+  name: string;
+  description: string;
+  price: number; // in cents
+  imageUrl: string;
+  category: string;
+  stock: number;
+  featured: boolean;
+  stripeProductId?: string | null;
+  stripePriceId?: string | null;
+}) {
+  try {
+    let stripeProduct;
+    let stripePrice;
+    
+    // If product exists in Stripe, update it
+    if (product.stripeProductId) {
+      stripeProduct = await stripe.products.update(
+        product.stripeProductId,
+        {
+          name: product.name,
+          description: product.description,
+          images: [product.imageUrl],
+          metadata: {
+            category: product.category,
+            stock: product.stock.toString(),
+            featured: product.featured.toString()
+          }
+        }
+      );
+      
+      // If price has changed, create a new price
+      if (product.stripePriceId) {
+        const existingPrice = await stripe.prices.retrieve(product.stripePriceId);
+        if (existingPrice.unit_amount !== product.price) {
+          // Create new price and update the product's default price
+          stripePrice = await stripe.prices.create({
+            product: product.stripeProductId,
+            unit_amount: product.price,
+            currency: 'usd',
+          });
+          
+          // Update the product's default price
+          await stripe.products.update(
+            product.stripeProductId,
+            {
+              default_price: stripePrice.id
+            }
+          );
+        } else {
+          stripePrice = existingPrice;
+        }
+      } else {
+        // Create a new price if none exists
+        stripePrice = await stripe.prices.create({
+          product: product.stripeProductId,
+          unit_amount: product.price,
+          currency: 'usd',
+        });
+        
+        // Update the product's default price
+        await stripe.products.update(
+          product.stripeProductId,
+          {
+            default_price: stripePrice.id
+          }
+        );
+      }
+    } else {
+      // Create a new product in Stripe
+      stripeProduct = await stripe.products.create({
+        name: product.name,
+        description: product.description,
+        images: [product.imageUrl],
+        default_price_data: {
+          unit_amount: product.price,
+          currency: 'usd',
+        },
+        metadata: {
+          category: product.category,
+          stock: product.stock.toString(),
+          featured: product.featured.toString()
+        }
+      });
+      
+      // Get the default price ID
+      const price = stripeProduct.default_price as string;
+      stripePrice = await stripe.prices.retrieve(price);
+    }
+    
+    return {
+      stripeProductId: stripeProduct.id,
+      stripePriceId: stripePrice.id
+    };
+  } catch (error: any) {
+    console.error('Error syncing product with Stripe:', error);
+    throw new Error(`Failed to sync product with Stripe: ${error.message}`);
+  }
+}
+
 export default {
   createPaymentIntent,
   updatePaymentIntent,
@@ -174,4 +302,6 @@ export default {
   createCustomer,
   retrievePaymentIntent,
   createOnDemandReadingPayment,
+  fetchStripeProducts,
+  syncProductWithStripe,
 };

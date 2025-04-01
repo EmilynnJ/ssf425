@@ -704,6 +704,126 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Sync all products with Stripe
+  app.post("/api/products/sync-with-stripe", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      // 1. Get all products from database
+      const dbProducts = await storage.getProducts();
+      
+      // 2. Sync each product with Stripe
+      const results = await Promise.all(
+        dbProducts.map(async (product) => {
+          try {
+            const { stripeProductId, stripePriceId } = await stripeClient.syncProductWithStripe(product);
+            
+            // 3. Update product in database with Stripe IDs
+            await storage.updateProduct(product.id, { 
+              stripeProductId, 
+              stripePriceId 
+            });
+            
+            return { 
+              id: product.id, 
+              name: product.name, 
+              success: true,
+              stripeProductId,
+              stripePriceId
+            };
+          } catch (error: any) {
+            return { 
+              id: product.id, 
+              name: product.name, 
+              success: false, 
+              error: error.message 
+            };
+          }
+        })
+      );
+      
+      // 4. Return results
+      res.json({
+        totalProducts: dbProducts.length,
+        successCount: results.filter(r => r.success).length,
+        failureCount: results.filter(r => !r.success).length,
+        results
+      });
+    } catch (error: any) {
+      console.error("Error syncing products with Stripe:", error);
+      res.status(500).json({ message: "Failed to sync products with Stripe" });
+    }
+  });
+  
+  // Import products from Stripe
+  app.post("/api/products/import-from-stripe", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      // 1. Get products from Stripe
+      const stripeProducts = await stripeClient.fetchStripeProducts();
+      
+      // 2. Get existing products from DB to check for duplicates
+      const dbProducts = await storage.getProducts();
+      const existingStripeProductIds = new Set(
+        dbProducts
+          .filter(p => p.stripeProductId)
+          .map(p => p.stripeProductId)
+      );
+      
+      // 3. Filter out products that already exist in the database
+      const newProducts = stripeProducts.filter(
+        p => !existingStripeProductIds.has(p.stripeProductId)
+      );
+      
+      // 4. Import new products into database
+      const importResults = await Promise.all(
+        newProducts.map(async (product) => {
+          try {
+            const newProduct = await storage.createProduct({
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              imageUrl: product.imageUrl,
+              category: product.category,
+              stock: product.stock,
+              featured: product.featured,
+              stripeProductId: product.stripeProductId,
+              stripePriceId: product.stripePriceId
+            });
+            
+            return { 
+              id: newProduct.id, 
+              name: newProduct.name, 
+              success: true 
+            };
+          } catch (error: any) {
+            return { 
+              name: product.name, 
+              success: false, 
+              error: error.message 
+            };
+          }
+        })
+      );
+      
+      // 5. Return results
+      res.json({
+        totalImported: newProducts.length,
+        successCount: importResults.filter(r => r.success).length,
+        failureCount: importResults.filter(r => !r.success).length,
+        results: importResults
+      });
+    } catch (error: any) {
+      console.error("Error importing products from Stripe:", error);
+      res.status(500).json({ message: "Failed to import products from Stripe" });
+    }
+  });
+  
   // Orders
   app.post("/api/orders", async (req, res) => {
     if (!req.isAuthenticated()) {

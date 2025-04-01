@@ -146,9 +146,6 @@ export class MemStorage implements IStorage {
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
-    
-    // Create initial data for demo purposes
-    this.seedData();
   }
 
   // User
@@ -602,7 +599,7 @@ export class MemStorage implements IStorage {
   
   // Seed data for demonstration
   private seedData() {
-    // Seeding is only for development and is handled elsewhere
+    // No seed data in production
   }
 }
 
