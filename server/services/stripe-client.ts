@@ -1,10 +1,12 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required environment variable: STRIPE_SECRET_KEY');
-}
+let stripe: Stripe | null = null;
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('Warning: STRIPE_SECRET_KEY environment variable is missing. Stripe functionality will be disabled.');
+} else {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 export interface CreatePaymentIntentParams {
   amount: number;
