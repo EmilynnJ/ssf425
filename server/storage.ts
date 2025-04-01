@@ -607,10 +607,18 @@ export class DatabaseStorage implements IStorage {
   sessionStore: SessionStore;
 
   constructor() {
+    // Use MemoryStore instead of PostgresSessionStore to avoid session deserialization issues
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // prune expired entries every 24h
+    });
+    
+    /* 
+    // Commented out PostgresSessionStore until session issues are resolved
     this.sessionStore = new PostgresSessionStore({
       pool,
       createTableIfMissing: true
     });
+    */
   }
 
   // User methods

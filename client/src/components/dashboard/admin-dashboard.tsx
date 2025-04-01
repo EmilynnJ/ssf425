@@ -362,7 +362,7 @@ function ProductsManagement() {
     error: productsError,
     isLoading: productsLoading,
     refetch: refetchProducts,
-  } = useQuery<Product[]>({
+  } = useQuery({
     queryKey: ["/api/products"],
   });
 
@@ -414,7 +414,7 @@ function ProductsManagement() {
     <div className="space-y-4">
       <div className="flex justify-between items-center px-4 sm:px-0">
         <div className="text-sm text-muted-foreground">
-          {products?.length || 0} {products?.length === 1 ? 'product' : 'products'} in catalog
+          {Array.isArray(products) ? products.length : 0} {Array.isArray(products) && products.length === 1 ? 'product' : 'products'} in catalog
         </div>
         <Button 
           onClick={() => syncProductsMutation.mutate()}
@@ -443,8 +443,8 @@ function ProductsManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products && products.length > 0 ? (
-              products.map((product) => (
+            {products && Array.isArray(products) && products.length > 0 ? (
+              products.map((product: any) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.id}</TableCell>
                   <TableCell>{product.name}</TableCell>
