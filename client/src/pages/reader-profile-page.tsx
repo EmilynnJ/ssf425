@@ -608,7 +608,7 @@ export default function ReaderProfilePage() {
                           ...prev, 
                           duration: parseInt(e.target.value) 
                         }))}
-                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light"
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-black"
                       >
                         <option value="15">15 minutes</option>
                         <option value="30">30 minutes</option>
@@ -628,7 +628,7 @@ export default function ReaderProfilePage() {
                           date: new Date(e.target.value) 
                         }))}
                         min={new Date().toISOString().slice(0, 16)}
-                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light"
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-black"
                       />
                     </div>
                     
@@ -641,7 +641,7 @@ export default function ReaderProfilePage() {
                           notes: e.target.value 
                         }))}
                         placeholder="Share any specific topics or questions you'd like to cover in your reading."
-                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-light h-24"
+                        className="w-full p-2 rounded-md bg-primary-dark/50 border border-accent/20 text-black h-24"
                       />
                     </div>
                   </div>

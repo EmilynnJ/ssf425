@@ -351,7 +351,7 @@ export default function ReadingSessionPage() {
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     placeholder="Type your message..."
-                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm"
+                    className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm text-black"
                   />
                   <Button type="submit" disabled={sendMessageMutation.isPending} className="whitespace-nowrap">
                     <MessageCircle className="h-4 w-4 mr-2 sm:inline hidden" />
