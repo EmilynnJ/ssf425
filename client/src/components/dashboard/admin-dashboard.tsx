@@ -376,10 +376,10 @@ function ProductsManagement() {
       }
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Products Synced",
-        description: "Products have been successfully synced with Stripe catalog",
+        description: `Successfully synced ${data.successCount} of ${data.totalProducts} products with Stripe catalog`,
         variant: "default",
       });
       // Refresh the products list after syncing
@@ -388,6 +388,34 @@ function ProductsManagement() {
     onError: (error: Error) => {
       toast({
         title: "Sync Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation for importing products from Stripe
+  const importProductsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/products/import-from-stripe");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to import products from Stripe");
+      }
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Products Imported",
+        description: `Successfully imported ${data.successCount} new products from Stripe catalog`,
+        variant: "default",
+      });
+      // Refresh the products list after importing
+      refetchProducts();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -416,15 +444,27 @@ function ProductsManagement() {
         <div className="text-sm text-muted-foreground">
           {Array.isArray(products) ? products.length : 0} {Array.isArray(products) && products.length === 1 ? 'product' : 'products'} in catalog
         </div>
-        <Button 
-          onClick={() => syncProductsMutation.mutate()}
-          disabled={syncProductsMutation.isPending}
-          className="flex items-center gap-2"
-        >
-          {syncProductsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-          <RefreshCw className="h-4 w-4" />
-          Sync with Stripe
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            onClick={() => importProductsMutation.mutate()}
+            disabled={importProductsMutation.isPending || syncProductsMutation.isPending}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            {importProductsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Package className="h-4 w-4" />
+            Import from Stripe
+          </Button>
+          <Button 
+            onClick={() => syncProductsMutation.mutate()}
+            disabled={syncProductsMutation.isPending || importProductsMutation.isPending}
+            className="flex items-center gap-2"
+          >
+            {syncProductsMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <RefreshCw className="h-4 w-4" />
+            Sync with Stripe
+          </Button>
+        </div>
       </div>
       
       <div className="overflow-x-auto">
