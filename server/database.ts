@@ -10,10 +10,13 @@ config();
 
 // If we're running in development mode and no DATABASE_URL is provided
 // we'll use the default values
-const connectionString = process.env.DATABASE_URL;
+const connectionString = process.env.POSTGRES_URL;
 
 const pool = new Pool({
   connectionString,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Test the database connection
