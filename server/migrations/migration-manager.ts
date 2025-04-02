@@ -66,7 +66,7 @@ export async function runMigrations() {
 
         log(`Applying migration: ${migrationFile}`, 'database');
         await sql`${migrationSql}`;
-        await sql`${insertMigrationQuery}`, [migrationFile];
+        await sql`INSERT INTO migrations (name) VALUES (${migrationFile})`;
         log(`Successfully applied migration: ${migrationFile}`, 'database');
       }
 
@@ -108,7 +108,7 @@ export async function runMigration(migrationName: string, migrationSql: string) 
       // Apply the migration
       log(`Applying migration: ${migrationName}`, 'database');
       await sql`${migrationSql}`;
-      await sql`${insertMigrationQuery}`, [migrationName];
+      await sql`INSERT INTO migrations (name) VALUES (${migrationName})`;
       log(`Successfully applied migration: ${migrationName}`, 'database');
 
       // Commit transaction
