@@ -9,8 +9,8 @@ config();
 // Configure neon
 neonConfig.fetchConnectionCache = true;
 
-// Use the Neon connection URL
-const DATABASE_URL = 'postgresql://neondb_owner:npg_1tA3DvNckXoW@ep-noisy-union-a5mhired-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require';
+// Construct database URL from credentials
+const DATABASE_URL = `postgres://${process.env.PGUSER}:${process.env.PGPASSWORD}@${process.env.PGHOST}/${process.env.PGDATABASE}?sslmode=require`;
 
 const sql = neon(DATABASE_URL);
 
