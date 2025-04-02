@@ -1,15 +1,15 @@
-import * as migrations from './migrations/009_add_gifts';
 
-async function runMigrations() {
-  console.log('Running migrations...');
+import { runMigrations } from './migrations/migration-manager';
+
+async function main() {
   try {
-    await migrations.up();
+    await runMigrations();
     console.log('Migrations completed successfully');
     process.exit(0);
   } catch (error) {
-    console.error('Error running migrations:', error);
+    console.error('Migration failed:', error);
     process.exit(1);
   }
 }
 
-runMigrations();
+main();
