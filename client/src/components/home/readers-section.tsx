@@ -12,7 +12,20 @@ import { useEffect, useState } from "react";
 export function ReadersSection() {
   const [readers, setReaders] = useState<Omit<User, 'password'>[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const websocket = useWebSocketContext();
+  // Use a try-catch to handle the case when WebSocketProvider is not available
+  const [websocket, setWebsocket] = useState<any>({
+    lastMessage: null,
+    status: 'closed'
+  });
+  
+  useEffect(() => {
+    try {
+      const ws = require('@/hooks/websocket-provider').useWebSocketContext();
+      setWebsocket(ws);
+    } catch (error) {
+      console.log('WebSocketProvider not available, using fallback');
+    }
+  }, []);
   
   const { data: fetchedReaders, isLoading: isLoadingReaders } = useQuery<Omit<User, 'password'>[]>({
     queryKey: ["/api/readers/online"],

@@ -5,7 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Radio, WifiOff, AlertCircle } from "lucide-react";
 
 export function WebSocketStatus() {
-  const { status, sendMessage, lastMessage, reconnect } = useWebSocketContext();
+  // Default state values
+  const [wsContext, setWsContext] = useState<any>({
+    status: 'closed',
+    sendMessage: () => console.log('WebSocketProvider not available'),
+    lastMessage: null,
+    reconnect: () => console.log('WebSocketProvider not available')
+  });
+  
+  // Try to use WebSocketContext if available
+  useEffect(() => {
+    try {
+      const context = require('@/hooks/websocket-provider').useWebSocketContext();
+      setWsContext(context);
+    } catch (error) {
+      console.log('WebSocketProvider not available, using fallback');
+    }
+  }, []);
+  
+  // Destructure the context values
+  const { status, sendMessage, lastMessage, reconnect } = wsContext;
   const [pingTime, setPingTime] = useState<number | null>(null);
   const [isPinging, setIsPinging] = useState(false);
 

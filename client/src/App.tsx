@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
 import { CartProvider } from "@/hooks/use-cart";
+import { TRTCProvider } from "@/hooks/use-trtc";
 import { WebSocketProvider } from "@/hooks/websocket-provider";
 import HomePage from "@/pages/home-page";
 import AboutPage from "@/pages/about-page";
@@ -146,8 +147,10 @@ function App() {
         <AuthProvider>
           <CartProvider>
             <WebSocketProvider>
-              <Router />
-              <Toaster />
+              <TRTCProvider>
+                <Router />
+                <Toaster />
+              </TRTCProvider>
             </WebSocketProvider>
           </CartProvider>
         </AuthProvider>

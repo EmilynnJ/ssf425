@@ -1,11 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { WebSocketServer, WebSocket } from "ws";
 import { z } from "zod";
 import { UserUpdate, Reading } from "@shared/schema";
 import stripeClient from "./services/stripe-client";
+import trtcClient from "./services/trtc-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -2063,6 +2064,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching all users:", error);
       return res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // TRTC API Endpoint - Get credentials needed for TRTC connection
+  app.post("/api/trtc/params", async (req, res) => {
+    try {
+      const { userId, roomId } = req.body;
+      
+      if (!userId || !roomId) {
+        return res.status(400).json({ message: "userId and roomId are required" });
+      }
+      
+      const roomParams = trtcClient.generateRoomParams(userId, roomId);
+      
+      res.json(roomParams);
+    } catch (error) {
+      console.error("Failed to generate TRTC parameters:", error);
+      res.status(500).json({ message: "Failed to generate TRTC parameters" });
     }
   });
 
