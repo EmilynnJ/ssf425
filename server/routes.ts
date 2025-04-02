@@ -39,10 +39,14 @@ async function processCompletedReadingPayment(
       accountBalance: currentBalance - totalPrice
     });
     
-    // Add to reader's balance (readers get 80% of the payment, platform takes 20%)
+    // Add to reader's balance (readers get 70% of the payment, platform takes 30%)
     const reader = await storage.getUser(reading.readerId);
     if (reader && reader.role === "reader") {
-      const readerShare = Math.floor(totalPrice * 0.8);
+      const readerShare = Math.floor(totalPrice * 0.7); // 70% to reader
+      const platformShare = totalPrice - readerShare; // 30% to platform
+      
+      console.log(`Processing reading payment: Total $${totalPrice/100}, Reader $${readerShare/100} (70%), Platform $${platformShare/100} (30%)`);
+      
       await storage.updateUser(reader.id, {
         accountBalance: (reader.accountBalance || 0) + readerShare
       });
@@ -962,9 +966,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/livestreams", async (req, res) => {
     try {
       const livestreams = await storage.getLivestreams();
+      
+      // Return an empty array if no livestreams found
+      if (!livestreams || livestreams.length === 0) {
+        return res.json([]);
+      }
+      
       res.json(livestreams);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch livestreams" });
+      console.error("Error fetching livestreams:", error);
+      // Return empty array instead of error to avoid breaking the UI
+      res.json([]);
     }
   });
   
@@ -1079,65 +1091,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required gift data" });
       }
       
+      // Validate amount
+      if (isNaN(giftData.amount) || giftData.amount <= 0) {
+        return res.status(400).json({ message: "Invalid gift amount" });
+      }
+      
+      // Check if recipient exists
+      const recipient = await storage.getUser(giftData.recipientId);
+      if (!recipient) {
+        return res.status(404).json({ message: "Recipient not found" });
+      }
+      
       // Check if user has enough balance
-      if (req.user.accountBalance < giftData.amount) {
-        return res.status(400).json({ message: "Insufficient account balance" });
+      const sender = await storage.getUser(userId);
+      if (!sender || (sender.accountBalance || 0) < giftData.amount) {
+        return res.status(400).json({ 
+          message: "Insufficient account balance",
+          balance: sender ? sender.accountBalance || 0 : 0,
+          required: giftData.amount
+        });
       }
       
       // If there's a livestream, check if it's active
       if (giftData.livestreamId) {
         const livestream = await storage.getLivestream(giftData.livestreamId);
-        if (!livestream || livestream.status !== 'live') {
+        if (!livestream) {
+          return res.status(404).json({ message: "Livestream not found" });
+        }
+        if (livestream.status !== 'live') {
           return res.status(400).json({ message: "Livestream is not active" });
         }
       }
+      
+      // Calculate reader amount (70%) and platform amount (30%)
+      const amount = parseInt(giftData.amount);
+      const readerAmount = Math.floor(amount * 0.7); // 70% to reader
+      const platformAmount = amount - readerAmount; // Remainder to platform
       
       // Create the gift
       const gift = await storage.createGift({
         senderId: userId,
         recipientId: giftData.recipientId,
         livestreamId: giftData.livestreamId || null,
-        amount: giftData.amount,
+        amount: amount,
         giftType: giftData.giftType,
+        readerAmount: readerAmount,
+        platformAmount: platformAmount,
         message: giftData.message || null
       });
       
       // Deduct from sender's balance
       await storage.updateUser(userId, {
-        accountBalance: req.user.accountBalance - giftData.amount
+        accountBalance: (sender.accountBalance || 0) - amount
       });
       
       // Add to recipient's balance (70% of the gift amount)
-      const recipient = await storage.getUser(giftData.recipientId);
-      if (recipient) {
-        await storage.updateUser(giftData.recipientId, {
-          accountBalance: (recipient.accountBalance || 0) + gift.readerAmount
-        });
-      }
+      await storage.updateUser(giftData.recipientId, {
+        accountBalance: (recipient.accountBalance || 0) + readerAmount
+      });
       
       // If there's a livestream, notify all users in the livestream
       if (giftData.livestreamId) {
-        broadcastToAll({
-          type: 'new_gift',
-          gift,
-          senderUsername: req.user.username
-        });
+        try {
+          broadcastToAll({
+            type: 'new_gift',
+            gift,
+            senderUsername: sender.username,
+            recipientUsername: recipient.username
+          });
+        } catch (broadcastError) {
+          console.error("Failed to broadcast gift:", broadcastError);
+          // Don't fail the request if broadcasting fails
+        }
       }
       
       res.status(201).json(gift);
     } catch (error) {
       console.error("Failed to create gift:", error);
-      res.status(500).json({ message: "Failed to create gift" });
+      res.status(500).json({ message: "Failed to create gift. Please try again." });
     }
   });
   
   app.get("/api/gifts/livestream/:livestreamId", async (req, res) => {
     try {
       const { livestreamId } = req.params;
+      
+      if (!livestreamId || isNaN(parseInt(livestreamId))) {
+        return res.json([]);
+      }
+      
       const gifts = await storage.getGiftsByLivestream(parseInt(livestreamId));
+      
+      // Return empty array if no gifts found
+      if (!gifts || gifts.length === 0) {
+        return res.json([]);
+      }
+      
       res.json(gifts);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch gifts" });
+      console.error("Error fetching gifts for livestream:", error);
+      // Return empty array instead of error to avoid breaking the UI
+      res.json([]);
     }
   });
   
@@ -1148,9 +1202,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const gifts = await storage.getGiftsByRecipient(req.user.id);
+      
+      // Return empty array if no gifts found
+      if (!gifts || gifts.length === 0) {
+        return res.json([]);
+      }
+      
       res.json(gifts);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch received gifts" });
+      console.error("Error fetching received gifts:", error);
+      // Return empty array instead of error to avoid breaking the UI
+      res.json([]);
     }
   });
   
@@ -1161,9 +1223,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const gifts = await storage.getGiftsBySender(req.user.id);
+      
+      // Return empty array if no gifts found
+      if (!gifts || gifts.length === 0) {
+        return res.json([]);
+      }
+      
       res.json(gifts);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch sent gifts" });
+      console.error("Error fetching sent gifts:", error);
+      // Return empty array instead of error to avoid breaking the UI
+      res.json([]);
     }
   });
   
@@ -1176,23 +1246,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get all unprocessed gifts
       const unprocessedGifts = await storage.getUnprocessedGifts();
+      
+      // If no unprocessed gifts found, return early
+      if (!unprocessedGifts || unprocessedGifts.length === 0) {
+        return res.json({ 
+          processedCount: 0,
+          gifts: [],
+          message: "No unprocessed gifts found"
+        });
+      }
+      
       const processedGifts = [];
+      const failedGifts = [];
       
       // Mark each gift as processed
       for (const gift of unprocessedGifts) {
-        const processedGift = await storage.markGiftAsProcessed(gift.id);
-        if (processedGift) {
-          processedGifts.push(processedGift);
+        try {
+          const processedGift = await storage.markGiftAsProcessed(gift.id);
+          if (processedGift) {
+            processedGifts.push(processedGift);
+          } else {
+            failedGifts.push(gift.id);
+          }
+        } catch (giftError) {
+          console.error(`Failed to process gift ${gift.id}:`, giftError);
+          failedGifts.push(gift.id);
         }
       }
       
       res.json({ 
         processedCount: processedGifts.length,
-        gifts: processedGifts
+        gifts: processedGifts,
+        failedCount: failedGifts.length,
+        failedGiftIds: failedGifts,
+        success: processedGifts.length > 0
       });
     } catch (error) {
       console.error("Failed to process gifts:", error);
-      res.status(500).json({ message: "Failed to process gifts" });
+      res.status(500).json({ 
+        message: "Failed to process gifts",
+        error: error.message || "Unknown error" 
+      });
     }
   });
   
@@ -1855,8 +1949,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add to reader's balance (if not already admin)
       const reader = await storage.getUser(reading.readerId);
       if (reader && reader.role === "reader") {
-        // Readers get 80% of the payment, platform takes 20%
-        const readerShare = Math.floor(totalPrice * 0.8);
+        // Readers get 70% of the payment, platform takes 30%
+        const readerShare = Math.floor(totalPrice * 0.7);
+        const platformShare = totalPrice - readerShare; // 30% to platform
+        
+        console.log(`Processing completed reading payment: Total $${totalPrice/100}, Reader $${readerShare/100} (70%), Platform $${platformShare/100} (30%)`);
+        
         await storage.updateUser(reader.id, {
           accountBalance: (reader.accountBalance || 0) + readerShare
         });
