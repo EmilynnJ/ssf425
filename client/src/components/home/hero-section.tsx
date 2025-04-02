@@ -28,16 +28,28 @@ export function HeroSection() {
           A Community of Gifted Psychics
         </p>
         
-        <div className="grid grid-cols-1 gap-4 max-w-xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto">
+          <Link href={PATHS.READERS}>
+            <CelestialButton variant="default" size="default" className="w-full">
+              Readers
+            </CelestialButton>
+          </Link>
+          
           <Link href={PATHS.LIVE}>
-            <CelestialButton variant="secondary" size="lg" className="w-full">
+            <CelestialButton variant="secondary" size="default" className="w-full">
               Live Streams
             </CelestialButton>
           </Link>
           
           <Link href={PATHS.SHOP}>
-            <CelestialButton variant="primary" size="lg" className="w-full">
+            <CelestialButton variant="default" size="default" className="w-full">
               Shop
+            </CelestialButton>
+          </Link>
+          
+          <Link href={PATHS.COMMUNITY}>
+            <CelestialButton variant="secondary" size="default" className="w-full">
+              Community
             </CelestialButton>
           </Link>
         </div>
