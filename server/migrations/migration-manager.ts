@@ -25,7 +25,7 @@ const getAppliedMigrationsQuery = `
 
 // Insert a migration record
 const insertMigrationQuery = `
-  INSERT INTO migrations (name) VALUES ($1);
+  INSERT INTO migrations (name) VALUES (?);
 `;
 
 // Read and execute migration files
