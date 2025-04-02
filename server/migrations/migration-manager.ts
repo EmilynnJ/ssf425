@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { pool, query } from '../database';
+import { sql } from '../database'; // Assuming sql is now exported from database.ts
 import { log } from '../vite';
 
 // ES Module alternative for __dirname
@@ -32,11 +32,11 @@ const insertMigrationQuery = `
 export async function runMigrations() {
   try {
     // Create migrations table if it doesn't exist
-    await query(createMigrationsTableQuery);
+    await sql`${createMigrationsTableQuery}`;
     log('Migrations table created or verified', 'database');
 
     // Get all applied migrations
-    const appliedMigrations = await query(getAppliedMigrationsQuery);
+    const appliedMigrations = await sql`${getAppliedMigrationsQuery}`;
     const appliedMigrationNames = appliedMigrations.rows.map(row => row.name);
 
     // Get all migration files
@@ -56,9 +56,8 @@ export async function runMigrations() {
     log(`Found ${pendingMigrations.length} pending migrations`, 'database');
 
     // Begin a transaction
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
+      await sql`BEGIN`;
 
       // Apply each pending migration
       for (const migrationFile of pendingMigrations) {
@@ -66,21 +65,19 @@ export async function runMigrations() {
         const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
         log(`Applying migration: ${migrationFile}`, 'database');
-        await client.query(migrationSql);
-        await client.query(insertMigrationQuery, [migrationFile]);
+        await sql`${migrationSql}`;
+        await sql`${insertMigrationQuery}`, [migrationFile];
         log(`Successfully applied migration: ${migrationFile}`, 'database');
       }
 
       // Commit transaction
-      await client.query('COMMIT');
+      await sql`COMMIT`;
       log(`Successfully applied ${pendingMigrations.length} migrations`, 'database');
     } catch (error) {
       // Rollback transaction on error
-      await client.query('ROLLBACK');
+      await sql`ROLLBACK`;
       log(`Error applying migrations: ${error}`, 'database');
       throw error;
-    } finally {
-      client.release();
     }
   } catch (error) {
     log(`Migration error: ${error}`, 'database');
@@ -92,11 +89,11 @@ export async function runMigrations() {
 export async function runMigration(migrationName: string, migrationSql: string) {
   try {
     // Create migrations table if it doesn't exist
-    await query(createMigrationsTableQuery);
+    await sql`${createMigrationsTableQuery}`;
     log('Migrations table created or verified', 'database');
 
     // Check if migration has been applied
-    const appliedMigrations = await query(getAppliedMigrationsQuery);
+    const appliedMigrations = await sql`${getAppliedMigrationsQuery}`;
     const appliedMigrationNames = appliedMigrations.rows.map(row => row.name);
 
     if (appliedMigrationNames.includes(migrationName)) {
@@ -105,25 +102,22 @@ export async function runMigration(migrationName: string, migrationSql: string) 
     }
 
     // Begin a transaction
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
+      await sql`BEGIN`;
 
       // Apply the migration
       log(`Applying migration: ${migrationName}`, 'database');
-      await client.query(migrationSql);
-      await client.query(insertMigrationQuery, [migrationName]);
+      await sql`${migrationSql}`;
+      await sql`${insertMigrationQuery}`, [migrationName];
       log(`Successfully applied migration: ${migrationName}`, 'database');
 
       // Commit transaction
-      await client.query('COMMIT');
+      await sql`COMMIT`;
     } catch (error) {
       // Rollback transaction on error
-      await client.query('ROLLBACK');
+      await sql`ROLLBACK`;
       log(`Error applying migration ${migrationName}: ${error}`, 'database');
       throw error;
-    } finally {
-      client.release();
     }
   } catch (error) {
     log(`Migration error: ${error}`, 'database');
