@@ -65,7 +65,7 @@ export async function runMigrations() {
         const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
         log(`Applying migration: ${migrationFile}`, 'database');
-        await sql`${migrationSql}`;
+        await sql(migrationSql);
         await sql`INSERT INTO migrations (name) VALUES (${migrationFile})`;
         log(`Successfully applied migration: ${migrationFile}`, 'database');
       }
@@ -107,7 +107,7 @@ export async function runMigration(migrationName: string, migrationSql: string) 
 
       // Apply the migration
       log(`Applying migration: ${migrationName}`, 'database');
-      await sql`${migrationSql}`;
+      await sql(migrationSql);
       await sql`INSERT INTO migrations (name) VALUES (${migrationName})`;
       log(`Successfully applied migration: ${migrationName}`, 'database');
 
