@@ -1,4 +1,4 @@
-import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage, karmaTransactions, type KarmaTransaction, type InsertKarmaTransaction } from "@shared/schema";
+import { users, type User, type InsertUser, type UserUpdate, readings, type Reading, type InsertReading, products, type Product, type InsertProduct, orders, type Order, type InsertOrder, orderItems, type OrderItem, type InsertOrderItem, livestreams, type Livestream, type InsertLivestream, forumPosts, type ForumPost, type InsertForumPost, forumComments, type ForumComment, type InsertForumComment, messages, type Message, type InsertMessage, gifts, type Gift, type InsertGift } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPgSimple from "connect-pg-simple";
@@ -71,25 +71,13 @@ export interface IStorage {
   getUnreadMessageCount(userId: number): Promise<number>;
   markMessageAsRead(id: number): Promise<Message | undefined>;
   
-  // Karma Points
-  createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction>;
-  getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]>;
-  getUserKarmaBalance(userId: number): Promise<number>;
-  addKarmaPoints(
-    userId: number, 
-    amount: number, 
-    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User>;
-  spendKarmaPoints(
-    userId: number, 
-    amount: number, 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User>;
+  // Gifts for livestreams
+  createGift(gift: InsertGift): Promise<Gift>;
+  getGiftsByLivestream(livestreamId: number): Promise<Gift[]>;
+  getGiftsBySender(senderId: number): Promise<Gift[]>;
+  getGiftsByRecipient(recipientId: number): Promise<Gift[]>;
+  getUnprocessedGifts(): Promise<Gift[]>;
+  markGiftAsProcessed(id: number): Promise<Gift | undefined>;
   
   // Session store for authentication
   sessionStore: SessionStore;
@@ -105,7 +93,7 @@ export class MemStorage implements IStorage {
   private forumPosts: Map<number, ForumPost>;
   private forumComments: Map<number, ForumComment>;
   private messages: Map<number, Message>;
-  private karmaTransactions: Map<number, KarmaTransaction>;
+  private gifts: Map<number, Gift>;
   
   sessionStore: SessionStore;
   
@@ -118,7 +106,7 @@ export class MemStorage implements IStorage {
   currentForumPostId: number;
   currentForumCommentId: number;
   currentMessageId: number;
-  currentKarmaTransactionId: number;
+  currentGiftId: number;
 
   constructor() {
     this.users = new Map();
@@ -130,7 +118,7 @@ export class MemStorage implements IStorage {
     this.forumPosts = new Map();
     this.forumComments = new Map();
     this.messages = new Map();
-    this.karmaTransactions = new Map();
+    this.gifts = new Map();
     
     this.currentUserId = 1;
     this.currentReadingId = 1;
@@ -141,7 +129,7 @@ export class MemStorage implements IStorage {
     this.currentForumPostId = 1;
     this.currentForumCommentId = 1;
     this.currentMessageId = 1;
-    this.currentKarmaTransactionId = 1;
+    this.currentGiftId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
@@ -512,89 +500,81 @@ export class MemStorage implements IStorage {
     return updatedMessage;
   }
   
-  // Karma Points methods
-  async createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction> {
-    const id = this.currentKarmaTransactionId++;
-    const karmaTransaction: KarmaTransaction = {
-      ...transaction,
+  // Gift methods for livestreams
+  async createGift(gift: InsertGift): Promise<Gift> {
+    const id = this.currentGiftId++;
+    const now = new Date();
+    
+    // Calculate the split - 70% to reader, 30% to platform
+    const readerAmount = Math.floor(gift.amount * 0.7);
+    const platformAmount = gift.amount - readerAmount;
+    
+    const newGift: Gift = {
+      ...gift,
       id,
-      createdAt: new Date(),
-      relatedEntityId: transaction.relatedEntityId || null,
-      relatedEntityType: transaction.relatedEntityType || null
+      createdAt: now,
+      readerAmount,
+      platformAmount,
+      processed: false,
+      processedAt: null
     };
-    this.karmaTransactions.set(id, karmaTransaction);
-    return karmaTransaction;
+    
+    this.gifts.set(id, newGift);
+    return newGift;
   }
   
-  async getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]> {
-    return Array.from(this.karmaTransactions.values())
-      .filter(transaction => transaction.userId === userId)
+  async getGiftsByLivestream(livestreamId: number): Promise<Gift[]> {
+    return Array.from(this.gifts.values())
+      .filter(gift => gift.livestreamId === livestreamId)
       .sort((a, b) => {
-        // Handle null createdAt (shouldn't happen, but TypeScript needs it)
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
   }
   
-  async getUserKarmaBalance(userId: number): Promise<number> {
-    const transactions = await this.getUserKarmaTransactions(userId);
-    return transactions.reduce((total, transaction) => total + transaction.amount, 0);
+  async getGiftsBySender(senderId: number): Promise<Gift[]> {
+    return Array.from(this.gifts.values())
+      .filter(gift => gift.senderId === senderId)
+      .sort((a, b) => {
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
   }
   
-  async addKarmaPoints(
-    userId: number, 
-    amount: number, 
-    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User> {
-    // Create the transaction
-    await this.createKarmaTransaction({
-      userId,
-      amount,
-      type,
-      description,
-      relatedEntityId: relatedEntityId || null,
-      relatedEntityType: relatedEntityType || null
-    });
-    
-    // Update the user
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
-    }
-    
-    // We've removed karma points, so we're just returning the user now
-    return user;
+  async getGiftsByRecipient(recipientId: number): Promise<Gift[]> {
+    return Array.from(this.gifts.values())
+      .filter(gift => gift.recipientId === recipientId)
+      .sort((a, b) => {
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return b.createdAt.getTime() - a.createdAt.getTime();
+      });
   }
   
-  async spendKarmaPoints(
-    userId: number, 
-    amount: number, 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User> {
-    // Check if the user exists
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
-    }
+  async getUnprocessedGifts(): Promise<Gift[]> {
+    return Array.from(this.gifts.values())
+      .filter(gift => !gift.processed)
+      .sort((a, b) => {
+        if (!a.createdAt) return 1;
+        if (!b.createdAt) return -1;
+        return a.createdAt.getTime() - b.createdAt.getTime(); // Older first
+      });
+  }
+  
+  async markGiftAsProcessed(id: number): Promise<Gift | undefined> {
+    const gift = this.gifts.get(id);
+    if (!gift) return undefined;
     
-    // Create the transaction (with negative amount)
-    await this.createKarmaTransaction({
-      userId,
-      amount: -amount,
-      type: 'karma_spent',
-      description,
-      relatedEntityId: relatedEntityId || null,
-      relatedEntityType: relatedEntityType || null
-    });
+    const processedGift: Gift = {
+      ...gift,
+      processed: true,
+      processedAt: new Date()
+    };
     
-    // We've removed karma points, so we're just returning the user now
-    return user;
+    this.gifts.set(id, processedGift);
+    return processedGift;
   }
   
   // Seed data for demonstration
@@ -953,81 +933,58 @@ export class DatabaseStorage implements IStorage {
     return updatedMessage;
   }
   
-  // Karma Points methods
-  async createKarmaTransaction(transaction: InsertKarmaTransaction): Promise<KarmaTransaction> {
-    const [createdTransaction] = await db.insert(karmaTransactions).values({
-      ...transaction,
+  // Gift methods for livestreams
+  async createGift(gift: InsertGift): Promise<Gift> {
+    // Calculate the split - 70% to reader, 30% to platform
+    const readerAmount = Math.floor(gift.amount * 0.7);
+    const platformAmount = gift.amount - readerAmount;
+    
+    const [createdGift] = await db.insert(gifts).values({
+      ...gift,
+      readerAmount,
+      platformAmount,
+      processed: false,
       createdAt: new Date()
     }).returning();
     
-    return createdTransaction;
+    return createdGift;
   }
   
-  async getUserKarmaTransactions(userId: number): Promise<KarmaTransaction[]> {
-    return await db.select().from(karmaTransactions)
-      .where(eq(karmaTransactions.userId, userId))
-      .orderBy(desc(karmaTransactions.createdAt));
+  async getGiftsByLivestream(livestreamId: number): Promise<Gift[]> {
+    return await db.select().from(gifts)
+      .where(eq(gifts.livestreamId, livestreamId))
+      .orderBy(desc(gifts.createdAt));
   }
   
-  async getUserKarmaBalance(userId: number): Promise<number> {
-    const result = await db.select({ total: sql`SUM(amount)` })
-      .from(karmaTransactions)
-      .where(eq(karmaTransactions.userId, userId));
+  async getGiftsBySender(senderId: number): Promise<Gift[]> {
+    return await db.select().from(gifts)
+      .where(eq(gifts.senderId, senderId))
+      .orderBy(desc(gifts.createdAt));
+  }
+  
+  async getGiftsByRecipient(recipientId: number): Promise<Gift[]> {
+    return await db.select().from(gifts)
+      .where(eq(gifts.recipientId, recipientId))
+      .orderBy(desc(gifts.createdAt));
+  }
+  
+  async getUnprocessedGifts(): Promise<Gift[]> {
+    return await db.select().from(gifts)
+      .where(eq(gifts.processed, false))
+      .orderBy(asc(gifts.createdAt)); // Process oldest first
+  }
+  
+  async markGiftAsProcessed(id: number): Promise<Gift | undefined> {
+    const now = new Date();
+    const [processedGift] = await db.update(gifts)
+      .set({ 
+        processed: true,
+        processedAt: now
+      })
+      .where(eq(gifts.id, id))
+      .returning();
       
-    return Number(result[0]?.total || 0);
-  }
-  
-  async addKarmaPoints(
-    userId: number, 
-    amount: number, 
-    type: "reading_completed" | "reading_review" | "forum_post" | "forum_comment" | "login_streak" | "product_purchase" | "admin_award" | "karma_spent", 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User> {
-    // Create the transaction
-    await this.createKarmaTransaction({
-      userId,
-      amount,
-      type,
-      description,
-      relatedEntityId: relatedEntityId || null,
-      relatedEntityType: relatedEntityType || null
-    });
-    
-    // Get the current user
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
-    }
-    
-    return user;
-  }
-  
-  async spendKarmaPoints(
-    userId: number, 
-    amount: number, 
-    description: string, 
-    relatedEntityId?: number | null, 
-    relatedEntityType?: "reading" | "forum_post" | "forum_comment" | "order" | "livestream" | "login" | null
-  ): Promise<User> {
-    // Get the user
-    const user = await this.getUser(userId);
-    if (!user) {
-      throw new Error(`User with ID ${userId} not found`);
-    }
-    
-    // Create the transaction (with negative amount)
-    await this.createKarmaTransaction({
-      userId,
-      amount: -amount,
-      type: 'karma_spent',
-      description,
-      relatedEntityId: relatedEntityId || null,
-      relatedEntityType: relatedEntityType || null
-    });
-    
-    return user;
+    return processedGift;
   }
 }
 

@@ -6,7 +6,7 @@ import NotFound from "@/pages/not-found";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { AuthProvider } from "@/hooks/use-auth";
 import { CartProvider } from "@/hooks/use-cart";
-import { TRTCProvider } from "@/hooks/use-trtc";
+// TRTC has been completely removed
 import { WebSocketProvider } from "@/hooks/websocket-provider";
 import HomePage from "@/pages/home-page";
 import AboutPage from "@/pages/about-page";
@@ -147,10 +147,8 @@ function App() {
         <AuthProvider>
           <CartProvider>
             <WebSocketProvider>
-              <TRTCProvider>
-                <Router />
-                <Toaster />
-              </TRTCProvider>
+              <Router />
+              <Toaster />
             </WebSocketProvider>
           </CartProvider>
         </AuthProvider>

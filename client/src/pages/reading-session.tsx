@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useWebSocketContext } from '@/hooks/websocket-provider';
 import { Reading } from '@shared/schema';
-import { VideoCallTRTC } from '@/components/readings/video-call-trtc';
+import { VideoCallMux } from '@/components/readings/video-call-mux';
 import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -233,7 +233,7 @@ export default function ReadingSessionPage() {
     return `$${(cents / 100).toFixed(2)}`;
   };
   
-  // Handle timer updates from the VideoCallTRTC component
+  // Handle timer updates from the VideoCallMux component
   const handleTimerUpdate = (seconds: number) => {
     setElapsedTime(seconds);
   };
@@ -364,7 +364,7 @@ export default function ReadingSessionPage() {
             {/* Video Call UI */}
             {reading.type === 'video' && (
               <TabsContent value="video" className="h-[400px]">
-                <VideoCallTRTC
+                <VideoCallMux
                   reading={reading}
                   user={user}
                   isReader={isReader}

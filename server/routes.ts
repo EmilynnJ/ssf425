@@ -6,7 +6,7 @@ import { setupAuth } from "./auth";
 import { z } from "zod";
 import { UserUpdate, Reading } from "@shared/schema";
 import stripeClient from "./services/stripe-client";
-import trtcClient from "./services/trtc-client";
+// TRTC has been completely removed
 import * as muxClient from "./services/mux-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -968,20 +968,175 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { status } = req.body;
       
-      // Update additional fields based on status
-      let updateData: any = { status };
+      let updatedLivestream;
       
       if (status === "live") {
-        updateData.startedAt = new Date();
+        // Start the livestream with MUX
+        updatedLivestream = await muxClient.startLivestream(id);
+        
+        // Broadcast to all connected clients that a new livestream is starting
+        (global as any).websocket?.broadcastToAll?.({
+          type: 'livestream_started',
+          livestreamId: id,
+          user: {
+            id: req.user.id,
+            username: req.user.username,
+            fullName: req.user.fullName,
+            profileImage: req.user.profileImage
+          },
+          timestamp: Date.now()
+        });
       } else if (status === "ended") {
-        updateData.endedAt = new Date();
+        // End the livestream with MUX
+        updatedLivestream = await muxClient.endLivestream(id);
+        
+        // Broadcast to all connected clients that the livestream has ended
+        (global as any).websocket?.broadcastToAll?.({
+          type: 'livestream_ended',
+          livestreamId: id,
+          timestamp: Date.now()
+        });
+      } else {
+        // For other status updates, just update in our database
+        updatedLivestream = await storage.updateLivestream(id, { status });
       }
-      
-      const updatedLivestream = await storage.updateLivestream(id, updateData);
       
       res.json(updatedLivestream);
     } catch (error) {
+      console.error("Failed to update livestream status:", error);
       res.status(500).json({ message: "Failed to update livestream status" });
+    }
+  });
+  
+  // Gifting system for livestreams
+  app.post("/api/gifts", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const giftData = req.body;
+      const userId = req.user.id;
+      
+      // Validate required fields
+      if (!giftData.recipientId || !giftData.amount || !giftData.giftType) {
+        return res.status(400).json({ message: "Missing required gift data" });
+      }
+      
+      // Check if user has enough balance
+      if (req.user.accountBalance < giftData.amount) {
+        return res.status(400).json({ message: "Insufficient account balance" });
+      }
+      
+      // If there's a livestream, check if it's active
+      if (giftData.livestreamId) {
+        const livestream = await storage.getLivestream(giftData.livestreamId);
+        if (!livestream || livestream.status !== 'live') {
+          return res.status(400).json({ message: "Livestream is not active" });
+        }
+      }
+      
+      // Create the gift
+      const gift = await storage.createGift({
+        senderId: userId,
+        recipientId: giftData.recipientId,
+        livestreamId: giftData.livestreamId || null,
+        amount: giftData.amount,
+        giftType: giftData.giftType,
+        message: giftData.message || null
+      });
+      
+      // Deduct from sender's balance
+      await storage.updateUser(userId, {
+        accountBalance: req.user.accountBalance - giftData.amount
+      });
+      
+      // Add to recipient's balance (70% of the gift amount)
+      const recipient = await storage.getUser(giftData.recipientId);
+      if (recipient) {
+        await storage.updateUser(giftData.recipientId, {
+          accountBalance: (recipient.accountBalance || 0) + gift.readerAmount
+        });
+      }
+      
+      // If there's a livestream, notify all users in the livestream
+      if (giftData.livestreamId) {
+        broadcastToAll({
+          type: 'new_gift',
+          gift,
+          senderUsername: req.user.username
+        });
+      }
+      
+      res.status(201).json(gift);
+    } catch (error) {
+      console.error("Failed to create gift:", error);
+      res.status(500).json({ message: "Failed to create gift" });
+    }
+  });
+  
+  app.get("/api/gifts/livestream/:livestreamId", async (req, res) => {
+    try {
+      const { livestreamId } = req.params;
+      const gifts = await storage.getGiftsByLivestream(parseInt(livestreamId));
+      res.json(gifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch gifts" });
+    }
+  });
+  
+  app.get("/api/gifts/received", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const gifts = await storage.getGiftsByRecipient(req.user.id);
+      res.json(gifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch received gifts" });
+    }
+  });
+  
+  app.get("/api/gifts/sent", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const gifts = await storage.getGiftsBySender(req.user.id);
+      res.json(gifts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sent gifts" });
+    }
+  });
+  
+  // Admin endpoint to process gifts 
+  app.post("/api/admin/gifts/process", async (req, res) => {
+    if (!req.isAuthenticated() || req.user.role !== "admin") {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+    
+    try {
+      // Get all unprocessed gifts
+      const unprocessedGifts = await storage.getUnprocessedGifts();
+      const processedGifts = [];
+      
+      // Mark each gift as processed
+      for (const gift of unprocessedGifts) {
+        const processedGift = await storage.markGiftAsProcessed(gift.id);
+        if (processedGift) {
+          processedGifts.push(processedGift);
+        }
+      }
+      
+      res.json({ 
+        processedCount: processedGifts.length,
+        gifts: processedGifts
+      });
+    } catch (error) {
+      console.error("Failed to process gifts:", error);
+      res.status(500).json({ message: "Failed to process gifts" });
     }
   });
   
@@ -2077,21 +2232,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // TRTC API Endpoint - Get credentials needed for TRTC connection
-  app.post("/api/trtc/params", async (req, res) => {
+  // MUX Livestream API for readings
+  app.post("/api/readings/:id/livestream", async (req, res) => {
     try {
-      const { userId, roomId } = req.body;
-      
-      if (!userId || !roomId) {
-        return res.status(400).json({ message: "userId and roomId are required" });
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
       
-      const roomParams = trtcClient.generateRoomParams(userId, roomId);
+      const readingId = parseInt(req.params.id);
+      if (isNaN(readingId)) {
+        return res.status(400).json({ message: "Invalid reading ID" });
+      }
       
-      res.json(roomParams);
+      const reading = await storage.getReading(readingId);
+      if (!reading) {
+        return res.status(404).json({ message: "Reading not found" });
+      }
+      
+      // Only the reader or client can create a livestream for this reading
+      if (reading.readerId !== req.user.id && reading.clientId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const { title, description } = req.body;
+      if (!title || !description) {
+        return res.status(400).json({ message: "Title and description are required" });
+      }
+      
+      // Use the MUX client to create a livestream for this reading
+      // Pass the reader user for the livestream creation
+      const readerUser = await storage.getUser(reading.readerId);
+      if (!readerUser) {
+        return res.status(404).json({ message: "Reader not found" });
+      }
+      
+      const livestream = await muxClient.createLivestream(readerUser, title, description);
+      
+      // Update the reading with the livestream ID
+      await storage.updateReading(readingId, {
+        muxLivestreamId: livestream.id
+      });
+      
+      res.status(200).json(livestream);
     } catch (error) {
-      console.error("Failed to generate TRTC parameters:", error);
-      res.status(500).json({ message: "Failed to generate TRTC parameters" });
+      console.error("Failed to create livestream for reading:", error);
+      res.status(500).json({ message: "Failed to create livestream" });
+    }
+  });
+  
+  // API endpoint to start a MUX livestream
+  app.post("/api/livestreams/:id/start", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const livestreamId = parseInt(req.params.id);
+      if (isNaN(livestreamId)) {
+        return res.status(400).json({ message: "Invalid livestream ID" });
+      }
+      
+      const livestream = await storage.getLivestream(livestreamId);
+      if (!livestream) {
+        return res.status(404).json({ message: "Livestream not found" });
+      }
+      
+      // Only the creator can start a livestream
+      if (livestream.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updatedLivestream = await muxClient.startLivestream(livestreamId);
+      
+      res.status(200).json(updatedLivestream);
+    } catch (error) {
+      console.error("Failed to start livestream:", error);
+      res.status(500).json({ message: "Failed to start livestream" });
+    }
+  });
+  
+  // API endpoint to end a MUX livestream
+  app.post("/api/livestreams/:id/end", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const livestreamId = parseInt(req.params.id);
+      if (isNaN(livestreamId)) {
+        return res.status(400).json({ message: "Invalid livestream ID" });
+      }
+      
+      const livestream = await storage.getLivestream(livestreamId);
+      if (!livestream) {
+        return res.status(404).json({ message: "Livestream not found" });
+      }
+      
+      // Both the creator and admin can end a livestream
+      if (livestream.userId !== req.user.id && req.user.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      
+      const updatedLivestream = await muxClient.endLivestream(livestreamId);
+      
+      res.status(200).json(updatedLivestream);
+    } catch (error) {
+      console.error("Failed to end livestream:", error);
+      res.status(500).json({ message: "Failed to end livestream" });
     }
   });
 

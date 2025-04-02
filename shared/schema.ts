@@ -140,15 +140,22 @@ export const forumComments = pgTable("forum_comments", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const karmaTransactions = pgTable("karma_transactions", {
+export const gifts = pgTable("gifts", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => users.id),
-  amount: integer("amount").notNull(), // Can be positive (earned) or negative (spent)
-  type: text("type", { enum: ["reading_completed", "reading_review", "forum_post", "forum_comment", "login_streak", "product_purchase", "admin_award", "karma_spent"] }).notNull(),
-  description: text("description").notNull(),
-  relatedEntityId: integer("related_entity_id"), // ID of the related reading, forum post, etc. if applicable
-  relatedEntityType: text("related_entity_type", { enum: ["reading", "forum_post", "forum_comment", "order", "livestream", "login"] }),
+  senderId: integer("sender_id").notNull().references(() => users.id),
+  recipientId: integer("recipient_id").notNull().references(() => users.id),
+  livestreamId: integer("livestream_id").references(() => livestreams.id),
+  amount: integer("amount").notNull(), // Amount in cents
+  giftType: text("gift_type", { 
+    enum: ["applause", "heart", "star", "diamond", "custom"] 
+  }).notNull(),
+  message: text("message"),
   createdAt: timestamp("created_at").defaultNow(),
+  // Stores the split of the gift amount (70% to reader, 30% to platform)
+  readerAmount: integer("reader_amount").notNull(), // 70% of amount in cents
+  platformAmount: integer("platform_amount").notNull(), // 30% of amount in cents
+  processed: boolean("processed").default(false), // Whether the payment has been processed to the reader
+  processedAt: timestamp("processed_at"),
 });
 
 // Insert Schemas
@@ -209,10 +216,10 @@ export const insertForumCommentSchema = createInsertSchema(forumComments)
 
 export const insertMessageSchema = createInsertSchema(messages)
   .omit({ id: true, createdAt: true, readAt: true });
-  
-export const insertKarmaTransactionSchema = createInsertSchema(karmaTransactions)
-  .omit({ id: true, createdAt: true });
 
+export const insertGiftSchema = createInsertSchema(gifts)
+  .omit({ id: true, createdAt: true, processed: true, processedAt: true });
+  
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -248,5 +255,5 @@ export type ForumComment = typeof forumComments.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
-export type InsertKarmaTransaction = z.infer<typeof insertKarmaTransactionSchema>;
-export type KarmaTransaction = typeof karmaTransactions.$inferSelect;
+export type InsertGift = z.infer<typeof insertGiftSchema>;
+export type Gift = typeof gifts.$inferSelect;
