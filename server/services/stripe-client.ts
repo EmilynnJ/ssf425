@@ -2,10 +2,18 @@ import Stripe from 'stripe';
 
 let stripe: Stripe | null = null;
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  console.warn('Warning: STRIPE_SECRET_KEY environment variable is missing. Stripe functionality will be disabled.');
-} else {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+try {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('Error: STRIPE_SECRET_KEY environment variable is missing');
+  } else {
+    console.log('Initializing Stripe with key length:', process.env.STRIPE_SECRET_KEY.length);
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2023-10-16'
+    });
+    console.log('Stripe initialized successfully');
+  }
+} catch (error) {
+  console.error('Error initializing Stripe:', error);
 }
 
 export interface CreatePaymentIntentParams {
