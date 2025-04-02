@@ -19,6 +19,7 @@ import ReadingSessionPage from "@/pages/reading-session";
 import CommunityPage from "@/pages/community-page";
 import ReadersPage from "@/pages/readers-page";
 import ReaderProfilePage from "@/pages/reader-profile-page";
+import PoliciesPage from "@/pages/policies-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { Layout } from "./components/layout";
 import "@/styles/globals.css";
@@ -130,7 +131,7 @@ function Router() {
         <Route path="/checkout/success" component={CheckoutPage} />
         <Route path="/community" component={CommunityPage} />
         <Route path="/help" component={Help} />
-        <Route path="/policies" component={Policies} />
+        <Route path="/policies" component={PoliciesPage} />
         <Route path="/apply" component={Apply} />
         
         {/* Fallback to 404 */}
