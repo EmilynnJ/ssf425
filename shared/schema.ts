@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, unique, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -102,14 +102,20 @@ export const livestreams = pgTable("livestreams", {
   userId: integer("user_id").notNull().references(() => users.id),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  thumbnailUrl: text("thumbnail_url").notNull(),
-  status: text("status", { enum: ["scheduled", "live", "ended"] }).notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  status: text("status", { enum: ["scheduled", "created", "live", "idle", "ended"] }).notNull(),
   scheduledFor: timestamp("scheduled_for"),
   startedAt: timestamp("started_at"),
   endedAt: timestamp("ended_at"),
   category: text("category").notNull(),
   viewerCount: integer("viewer_count").default(0),
   createdAt: timestamp("created_at").defaultNow(),
+  // MUX specific fields
+  streamKey: text("stream_key"),
+  playbackId: text("playback_id"),
+  muxLivestreamId: text("mux_livestream_id"),
+  muxAssetId: text("mux_asset_id"),
+  duration: real("duration"), // Duration in seconds after stream ends
 });
 
 export const forumPosts = pgTable("forum_posts", {
@@ -185,7 +191,15 @@ export const insertOrderItemSchema = createInsertSchema(orderItems)
   .omit({ id: true });
 
 export const insertLivestreamSchema = createInsertSchema(livestreams)
-  .omit({ id: true, createdAt: true, startedAt: true, endedAt: true, viewerCount: true });
+  .omit({ 
+    id: true, 
+    createdAt: true, 
+    startedAt: true, 
+    endedAt: true, 
+    viewerCount: true,
+    duration: true,
+    muxAssetId: true
+  });
 
 export const insertForumPostSchema = createInsertSchema(forumPosts)
   .omit({ id: true, createdAt: true, updatedAt: true, likes: true, views: true });

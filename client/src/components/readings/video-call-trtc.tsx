@@ -34,17 +34,20 @@ export function VideoCallTRTC({
   // Get TRTC client from context
   const { 
     client, 
-    isInitialized, 
     localStream, 
     remoteStreams, 
-    isConnecting,
-    isConnected,
+    status,
     joinRoom,
     leaveRoom,
-    toggleAudio,
-    toggleVideo,
-    error
+    startLocalStream,
+    stopLocalStream
   } = useTRTC();
+  
+  // Derive state from status
+  const isInitialized = client !== null;
+  const isConnecting = status === 'connecting';
+  const isConnected = status === 'connected';
+  const error = status === 'error' ? new Error('Failed to connect to video call') : null;
   
   // Generate room and user IDs for this reading
   const roomId = reading.id;
@@ -128,11 +131,11 @@ export function VideoCallTRTC({
   
   // Update remote video element when remote streams change
   useEffect(() => {
-    if (remoteStreams.length > 0 && remoteVideoRef.current) {
+    if (remoteVideoRef.current && remoteStreams.size > 0) {
       console.log("Remote streams available:", remoteStreams);
       
-      // Get the first remote stream
-      const stream = remoteStreams[0];
+      // Get the first remote stream from the Map
+      const stream = Array.from(remoteStreams.values())[0];
       
       // Clear previous content
       while (remoteVideoRef.current.firstChild) {
@@ -140,23 +143,55 @@ export function VideoCallTRTC({
       }
       
       // Append the new video element
-      const videoElement = stream.play(remoteVideoRef.current.id);
-      if (videoElement) {
-        remoteVideoRef.current.appendChild(videoElement);
+      if (stream && typeof stream.play === 'function') {
+        const videoElement = stream.play(remoteVideoRef.current.id);
+        if (videoElement) {
+          remoteVideoRef.current.appendChild(videoElement);
+        }
       }
     }
   }, [remoteStreams]);
   
   // Handle audio toggle
   const handleToggleAudio = () => {
-    setIsAudioEnabled(!isAudioEnabled);
-    toggleAudio();
+    if (!localStream) return;
+    
+    try {
+      if (isAudioEnabled) {
+        localStream.muteAudio();
+      } else {
+        localStream.unmuteAudio();
+      }
+      setIsAudioEnabled(!isAudioEnabled);
+    } catch (error) {
+      console.error("Error toggling audio:", error);
+      toast({
+        title: "Audio Toggle Failed",
+        description: "Could not change audio settings.",
+        variant: "destructive",
+      });
+    }
   };
   
   // Handle video toggle
   const handleToggleVideo = () => {
-    setIsVideoEnabled(!isVideoEnabled);
-    toggleVideo();
+    if (!localStream) return;
+    
+    try {
+      if (isVideoEnabled) {
+        localStream.muteVideo();
+      } else {
+        localStream.unmuteVideo();
+      }
+      setIsVideoEnabled(!isVideoEnabled);
+    } catch (error) {
+      console.error("Error toggling video:", error);
+      toast({
+        title: "Video Toggle Failed",
+        description: "Could not change video settings.",
+        variant: "destructive",
+      });
+    }
   };
   
   // Handle end call
@@ -207,7 +242,7 @@ export function VideoCallTRTC({
           ref={remoteVideoRef} 
           className="absolute inset-0 h-full w-full bg-black"
         >
-          {remoteStreams.length === 0 && (
+          {remoteStreams.size === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 {isConnecting || isJoining ? (

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { UserUpdate, Reading } from "@shared/schema";
 import stripeClient from "./services/stripe-client";
 import trtcClient from "./services/trtc-client";
+import * as muxClient from "./services/mux-client";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
@@ -919,18 +920,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const livestreamData = req.body;
       
-      const livestream = await storage.createLivestream({
-        userId: req.user.id,
-        title: livestreamData.title,
-        description: livestreamData.description,
-        thumbnailUrl: livestreamData.thumbnailUrl,
-        status: "scheduled",
+      // Create the livestream with MUX integration
+      const livestream = await muxClient.createLivestream(
+        req.user,
+        livestreamData.title,
+        livestreamData.description
+      );
+      
+      // Add additional data from the request
+      await storage.updateLivestream(livestream.id, {
+        thumbnailUrl: livestreamData.thumbnailUrl || null,
         scheduledFor: livestreamData.scheduledFor ? new Date(livestreamData.scheduledFor) : null,
-        category: livestreamData.category
+        category: livestreamData.category || "General"
       });
       
-      res.status(201).json(livestream);
+      // Return the livestream with streamUrl for broadcasting
+      res.status(201).json({
+        ...livestream,
+        streamUrl: `rtmps://global-live.mux.com:443/app/${livestream.streamKey}`
+      });
     } catch (error) {
+      console.error("Failed to create livestream:", error);
       res.status(500).json({ message: "Failed to create livestream" });
     }
   });
