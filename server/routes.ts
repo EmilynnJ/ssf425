@@ -9,6 +9,62 @@ import stripeClient from "./services/stripe-client";
 // TRTC has been completely removed
 import * as muxClient from "./services/mux-client";
 
+// Helper function to process payment for a completed reading
+async function processCompletedReadingPayment(
+  readingId: number,
+  totalPrice: number,
+  duration: number
+): Promise<void> {
+  try {
+    // Get the reading
+    const reading = await storage.getReading(readingId);
+    if (!reading) {
+      throw new Error(`Reading not found: ${readingId}`);
+    }
+    
+    // Get the client user
+    const client = await storage.getUser(reading.clientId);
+    if (!client) {
+      throw new Error(`Client not found: ${reading.clientId}`);
+    }
+    
+    // Check if client has sufficient balance
+    const currentBalance = client.accountBalance || 0;
+    if (currentBalance < totalPrice) {
+      throw new Error(`Insufficient balance for client ${client.id}: has ${currentBalance}, needs ${totalPrice}`);
+    }
+    
+    // Deduct from client's balance
+    await storage.updateUser(client.id, {
+      accountBalance: currentBalance - totalPrice
+    });
+    
+    // Add to reader's balance (readers get 80% of the payment, platform takes 20%)
+    const reader = await storage.getUser(reading.readerId);
+    if (reader && reader.role === "reader") {
+      const readerShare = Math.floor(totalPrice * 0.8);
+      await storage.updateUser(reader.id, {
+        accountBalance: (reader.accountBalance || 0) + readerShare
+      });
+    }
+    
+    // Update reading with payment details
+    await storage.updateReading(readingId, {
+      totalPrice,
+      duration,
+      status: "completed",
+      completedAt: new Date(),
+      paymentStatus: "paid",
+      paymentId: `internal-${Date.now()}`
+    });
+    
+    console.log(`Completed payment for reading ${readingId}: ${totalPrice} cents for ${duration} minutes`);
+  } catch (error) {
+    console.error('Error processing reading payment:', error);
+    throw error;
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication routes
   setupAuth(app);
@@ -562,7 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedReading = await storage.updateReading(id, {
         status: "completed",
         duration,
-        totalCost,
+        totalPrice: totalCost, // Using totalPrice instead of totalCost to match schema
         endedAt: new Date()
       });
       

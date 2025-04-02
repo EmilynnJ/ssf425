@@ -8,16 +8,18 @@ export function FounderSection() {
         <span className="text-accent">About</span> <span className="text-secondary">SoulSeer</span>
       </h1>
       
-      <Avatar className="w-40 h-40 mb-8 border-4 border-secondary glow-circle">
-        <AvatarImage 
-          src="/Picsart_25-03-12_11-39-59-336 (1).jpg" 
-          alt="Emily" 
-          className="object-cover"
-        />
-        <AvatarFallback className="bg-accent text-white text-4xl">
-          E
-        </AvatarFallback>
-      </Avatar>
+      <div className="mb-8">
+        <Avatar className="w-48 h-48 border-4 border-secondary glow-circle">
+          <AvatarImage 
+            src="/images/founder.jpg" 
+            alt="Emily" 
+            className="object-cover"
+          />
+          <AvatarFallback className="bg-accent text-white text-4xl">
+            E
+          </AvatarFallback>
+        </Avatar>
+      </div>
       
       <h2 className="text-2xl font-cinzel text-accent mb-2">Emily</h2>
       <p className="text-light/80 mb-12">Founder, Developer, & Reader</p>
