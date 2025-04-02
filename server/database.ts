@@ -1,23 +1,30 @@
-import pg from 'pg';
+import { neon, neonConfig } from '@neondatabase/serverless';
 import { config } from 'dotenv';
 import { log } from './vite';
-
-const { Pool } = pg;
-type PoolClient = pg.PoolClient;
 
 // Load environment variables
 config();
 
-// If we're running in development mode and no DATABASE_URL is provided
-// we'll use the default values
-const connectionString = process.env.POSTGRES_URL;
+// Configure neon
+neonConfig.fetchConnectionCache = true;
 
-const pool = new Pool({
-  connectionString,
-  ssl: {
-    rejectUnauthorized: false
+const sql = neon(process.env.POSTGRES_URL || '');
+
+// Create a wrapper for compatibility
+const query = async (text: string, params?: any[]) => {
+  try {
+    const start = Date.now();
+    const result = await sql(text, params);
+    const duration = Date.now() - start;
+    
+    log(`Executed query: ${text} - Duration: ${duration}ms`, 'database');
+    
+    return { rows: result, rowCount: result.length };
+  } catch (error: any) {
+    console.error('Database query error:', error);
+    throw new Error(`Database query error: ${error.message}`);
   }
-});
+};
 
 // Test the database connection
 pool.connect()
