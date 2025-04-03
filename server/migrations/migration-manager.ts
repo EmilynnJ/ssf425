@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { sql } from '../database'; // Assuming sql is now exported from database.ts
+import { query } from '../database'; // Use query instead of sql for parameterized queries
 import { log } from '../vite';
 
 // ES Module alternative for __dirname
@@ -25,19 +25,19 @@ const getAppliedMigrationsQuery = `
 
 // Insert a migration record
 const insertMigrationQuery = `
-  INSERT INTO migrations (name) VALUES (?);
+  INSERT INTO migrations (name) VALUES ($1);
 `;
 
 // Read and execute migration files
 export async function runMigrations() {
   try {
     // Create migrations table if it doesn't exist
-    await sql`${createMigrationsTableQuery}`;
+    await query(createMigrationsTableQuery);
     log('Migrations table created or verified', 'database');
 
     // Get all applied migrations
-    const appliedMigrations = await sql`${getAppliedMigrationsQuery}`;
-    const appliedMigrationNames = appliedMigrations.rows.map(row => row.name);
+    const result = await query(getAppliedMigrationsQuery);
+    const appliedMigrationNames = result.rows.map((row: any) => row.name);
 
     // Get all migration files
     const migrationsDir = path.join(__dirname);
@@ -57,7 +57,7 @@ export async function runMigrations() {
 
     // Begin a transaction
     try {
-      await sql`BEGIN`;
+      await query('BEGIN');
 
       // Apply each pending migration
       for (const migrationFile of pendingMigrations) {
@@ -65,17 +65,28 @@ export async function runMigrations() {
         const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
         log(`Applying migration: ${migrationFile}`, 'database');
-        await sql(migrationSql);
-        await sql`INSERT INTO migrations (name) VALUES (${migrationFile})`;
+        
+        // Split the SQL into individual statements (separated by semicolons)
+        const statements = migrationSql
+          .split(';')
+          .map(stmt => stmt.trim())
+          .filter(stmt => stmt.length > 0);
+        
+        // Execute each statement separately
+        for (const statement of statements) {
+          await query(statement + ';');
+        }
+        
+        await query(insertMigrationQuery, [migrationFile]);
         log(`Successfully applied migration: ${migrationFile}`, 'database');
       }
 
       // Commit transaction
-      await sql`COMMIT`;
+      await query('COMMIT');
       log(`Successfully applied ${pendingMigrations.length} migrations`, 'database');
     } catch (error) {
       // Rollback transaction on error
-      await sql`ROLLBACK`;
+      await query('ROLLBACK');
       log(`Error applying migrations: ${error}`, 'database');
       throw error;
     }
@@ -89,12 +100,12 @@ export async function runMigrations() {
 export async function runMigration(migrationName: string, migrationSql: string) {
   try {
     // Create migrations table if it doesn't exist
-    await sql`${createMigrationsTableQuery}`;
+    await query(createMigrationsTableQuery);
     log('Migrations table created or verified', 'database');
 
     // Check if migration has been applied
-    const appliedMigrations = await sql`${getAppliedMigrationsQuery}`;
-    const appliedMigrationNames = appliedMigrations.rows.map(row => row.name);
+    const result = await query(getAppliedMigrationsQuery);
+    const appliedMigrationNames = result.rows.map((row: any) => row.name);
 
     if (appliedMigrationNames.includes(migrationName)) {
       log(`Migration ${migrationName} already applied, skipping`, 'database');
@@ -103,19 +114,30 @@ export async function runMigration(migrationName: string, migrationSql: string) 
 
     // Begin a transaction
     try {
-      await sql`BEGIN`;
+      await query('BEGIN');
 
       // Apply the migration
       log(`Applying migration: ${migrationName}`, 'database');
-      await sql(migrationSql);
-      await sql`INSERT INTO migrations (name) VALUES (${migrationName})`;
+      
+      // Split the SQL into individual statements (separated by semicolons)
+      const statements = migrationSql
+        .split(';')
+        .map(stmt => stmt.trim())
+        .filter(stmt => stmt.length > 0);
+      
+      // Execute each statement separately
+      for (const statement of statements) {
+        await query(statement + ';');
+      }
+      
+      await query(insertMigrationQuery, [migrationName]);
       log(`Successfully applied migration: ${migrationName}`, 'database');
 
       // Commit transaction
-      await sql`COMMIT`;
+      await query('COMMIT');
     } catch (error) {
       // Rollback transaction on error
-      await sql`ROLLBACK`;
+      await query('ROLLBACK');
       log(`Error applying migration ${migrationName}: ${error}`, 'database');
       throw error;
     }

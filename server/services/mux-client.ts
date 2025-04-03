@@ -181,15 +181,29 @@ export async function endLivestream(id: number, disableMuxStream = true) {
 }
 
 // Handle webhook events from MUX
-export async function handleMuxWebhook(body: any, signature: string) {
+export async function handleMuxWebhook(rawBody: string, signature: string) {
   try {
     // Verify webhook signature if MUX_WEBHOOK_SECRET is provided
     if (process.env.MUX_WEBHOOK_SECRET) {
-      // Signature verification logic would go here
-      // This typically requires raw request body and proper verification
-      // For simplicity, we're just logging that we'd verify
-      log(`Would verify webhook signature: ${signature}`, 'mux');
+      const crypto = require('crypto');
+      const secret = process.env.MUX_WEBHOOK_SECRET;
+      
+      // Create HMAC using the secret
+      const hmac = crypto.createHmac('sha256', secret);
+      hmac.update(rawBody);
+      const calculatedSignature = hmac.digest('hex');
+      
+      // Verify signature
+      if (calculatedSignature !== signature) {
+        log('MUX webhook signature verification failed', 'mux');
+        throw new Error('Invalid webhook signature');
+      }
+      
+      log('MUX webhook signature verified successfully', 'mux');
     }
+    
+    // Parse the body as JSON after verification
+    const body = JSON.parse(rawBody);
 
     const { type, data } = body;
     log(`Received MUX webhook: ${type}`, 'mux');

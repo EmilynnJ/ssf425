@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -78,6 +78,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Setup WebSocket server for live readings and real-time communication
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // MUX Webhook endpoint
+  app.post('/api/webhooks/mux', express.raw({type: 'application/json'}), async (req, res) => {
+    try {
+      // Get the MUX signature from headers
+      const signature = req.headers['mux-signature'] as string;
+      
+      if (!signature) {
+        console.warn('Missing MUX signature header');
+        return res.status(400).json({ message: 'Missing signature header' });
+      }
+      
+      // The raw body is available in req.body since we used express.raw middleware
+      const rawBody = req.body.toString();
+      
+      // Handle the webhook
+      const result = await muxClient.handleMuxWebhook(rawBody, signature);
+      
+      res.status(200).json(result);
+    } catch (error) {
+      console.error('Error handling MUX webhook:', error);
+      res.status(500).json({ message: 'Error processing webhook' });
+    }
+  });
   
   // Track all connected WebSocket clients
   const connectedClients = new Map();
