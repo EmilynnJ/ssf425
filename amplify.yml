@@ -3,9 +3,11 @@ frontend:
   phases:
     preBuild:
       commands:
+        - echo "Installing dependencies"
         - npm ci
     build:
       commands:
+        - echo "Running combined build for frontend and backend"
         - npm run build
   artifacts:
     baseDirectory: dist
@@ -14,3 +16,8 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
+  customHeaders:
+    - pattern: '**/*'
+      headers:
+        - key: 'Cache-Control'
+          value: 'public, max-age=0, must-revalidate'

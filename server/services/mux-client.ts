@@ -183,28 +183,80 @@ export async function endLivestream(id: number, disableMuxStream = true) {
 // Handle webhook events from MUX
 export async function handleMuxWebhook(rawBody: string, signature: string) {
   try {
+    // First, try to parse the body as JSON
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+      log(`Successfully parsed webhook JSON body`, 'mux');
+    } catch (parseError) {
+      log(`Error parsing webhook JSON: ${parseError}`, 'mux');
+      return {
+        success: false,
+        message: 'Error processing webhook',
+        error: `JSON parsing error: ${parseError}`,
+        time: new Date().toISOString()
+      };
+    }
+
     // Verify webhook signature if MUX_WEBHOOK_SECRET is provided
     if (process.env.MUX_WEBHOOK_SECRET) {
-      const crypto = require('crypto');
-      const secret = process.env.MUX_WEBHOOK_SECRET;
-      
-      // Create HMAC using the secret
-      const hmac = crypto.createHmac('sha256', secret);
-      hmac.update(rawBody);
-      const calculatedSignature = hmac.digest('hex');
-      
-      // Verify signature
-      if (calculatedSignature !== signature) {
-        log('MUX webhook signature verification failed', 'mux');
-        throw new Error('Invalid webhook signature');
+      try {
+        // Import crypto synchronously
+        const crypto = await import('crypto');
+        const secret = process.env.MUX_WEBHOOK_SECRET as string;
+        
+        // Create HMAC using the secret
+        const hmac = crypto.createHmac('sha256', secret);
+        hmac.update(rawBody);
+        const calculatedSignature = hmac.digest('hex');
+        
+        // Verify signature
+        if (calculatedSignature !== signature) {
+          log('MUX webhook signature verification failed', 'mux');
+          
+          // In development mode, include signature details for debugging
+          const debugInfo = process.env.NODE_ENV !== 'production' 
+            ? {
+                expected: calculatedSignature,
+                received: signature,
+                payload: rawBody.substring(0, 100) + (rawBody.length > 100 ? '...' : '')
+              }
+            : undefined;
+            
+          return {
+            success: false,
+            message: 'Invalid webhook signature',
+            error: 'Signature mismatch',
+            time: new Date().toISOString(),
+            debug: debugInfo
+          };
+        }
+        
+        log('MUX webhook signature verified successfully', 'mux');
+      } catch (cryptoError) {
+        log(`Error during signature verification: ${cryptoError}`, 'mux');
+        return {
+          success: false,
+          message: 'Error verifying webhook signature',
+          error: `${cryptoError}`,
+          time: new Date().toISOString()
+        };
       }
-      
-      log('MUX webhook signature verified successfully', 'mux');
+    } else if (process.env.NODE_ENV !== 'production') {
+      // For development, skip signature verification if no secret is set
+      log('MUX_WEBHOOK_SECRET not set, skipping signature verification in development mode', 'mux');
+    } else {
+      // In production, require MUX_WEBHOOK_SECRET
+      log('MUX_WEBHOOK_SECRET missing in production environment', 'mux');
+      return {
+        success: false,
+        message: 'Missing MUX_WEBHOOK_SECRET in production environment',
+        error: 'Configuration error',
+        time: new Date().toISOString()
+      };
     }
     
-    // Parse the body as JSON after verification
-    const body = JSON.parse(rawBody);
-
+    // At this point, we've verified the signature and parsed the body
     const { type, data } = body;
     log(`Received MUX webhook: ${type}`, 'mux');
 
@@ -221,19 +273,42 @@ export async function handleMuxWebhook(rawBody: string, signature: string) {
         break;
       default:
         log(`Unhandled webhook type: ${type}`, 'mux');
+        return { 
+          success: true, 
+          message: `Event type '${type}' received but not handled`,
+          eventType: type
+        };
     }
 
-    return { success: true };
-  } catch (error) {
-    log(`Error handling MUX webhook: ${error}`, 'mux');
-    throw error;
+    return { 
+      success: true, 
+      message: 'Webhook processed successfully',
+      eventType: type
+    };
+  } catch (error: any) {
+    const errorMessage = error.message || 'Unknown error';
+    log(`Error handling MUX webhook: ${errorMessage}`, 'mux');
+    
+    // Return structured error for diagnostics instead of throwing
+    return {
+      success: false,
+      message: 'Error processing webhook',
+      error: errorMessage,
+      time: new Date().toISOString()
+    };
   }
 }
 
 // Handle livestream.active event
-async function handleLivestreamActive(data: any) {
+export async function handleLivestreamActive(data: any) {
   try {
     const muxLivestreamId = data.id;
+    
+    // Check if this is a test call (for development testing without real data)
+    if (muxLivestreamId && muxLivestreamId.includes('test_') && process.env.NODE_ENV !== 'production') {
+      log(`Processing test livestream.active event for ID: ${muxLivestreamId}`, 'mux');
+      return; // Skip actual storage updates for test events
+    }
     
     // Find the livestream in our database
     const livestreams = await storage.getLivestreams();
@@ -254,9 +329,15 @@ async function handleLivestreamActive(data: any) {
 }
 
 // Handle livestream.idle event
-async function handleLivestreamIdle(data: any) {
+export async function handleLivestreamIdle(data: any) {
   try {
     const muxLivestreamId = data.id;
+    
+    // Check if this is a test call (for development testing without real data)
+    if (muxLivestreamId && muxLivestreamId.includes('test_') && process.env.NODE_ENV !== 'production') {
+      log(`Processing test livestream.idle event for ID: ${muxLivestreamId}`, 'mux');
+      return; // Skip actual storage updates for test events
+    }
     
     // Find the livestream in our database
     const livestreams = await storage.getLivestreams();
@@ -276,9 +357,17 @@ async function handleLivestreamIdle(data: any) {
 }
 
 // Handle asset.ready event
-async function handleAssetReady(data: any) {
+export async function handleAssetReady(data: any) {
   try {
     const muxAssetId = data.id;
+    
+    // Check if this is a test call (for development testing without MUX credentials)
+    if (muxAssetId && muxAssetId.includes('test_') && process.env.NODE_ENV !== 'production') {
+      log(`Processing test asset.ready event for ID: ${muxAssetId}`, 'mux');
+      return; // Skip actual API calls for test events
+    }
+    
+    // In production, get the asset details from MUX
     const asset = await Video.Assets.get(muxAssetId) as MuxAsset;
     
     // Find the corresponding livestream by checking if this asset is associated with any livestream

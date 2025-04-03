@@ -91,17 +91,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // The raw body is available in req.body since we used express.raw middleware
-      const rawBody = req.body.toString();
+      // Ensure we're handling the Buffer correctly
+      let rawBody;
+      if (Buffer.isBuffer(req.body)) {
+        rawBody = req.body.toString('utf8');
+      } else if (typeof req.body === 'string') {
+        rawBody = req.body;
+      } else {
+        rawBody = JSON.stringify(req.body);
+      }
       
-      // Handle the webhook
+      // Log the raw request for debugging
+      console.log(`MUX webhook raw request body: ${rawBody}`);
+      
+      // Handle the webhook - note: handleMuxWebhook now returns structured responses
+      // instead of throwing errors for better diagnostics
       const result = await muxClient.handleMuxWebhook(rawBody, signature);
       
+      // If webhook processing was unsuccessful, return an appropriate status code
+      if (!result.success) {
+        console.warn('MUX webhook processing failed:', result);
+        return res.status(422).json(result);
+      }
+      
+      // Return the success result
       res.status(200).json(result);
     } catch (error) {
       console.error('Error handling MUX webhook:', error);
-      res.status(500).json({ message: 'Error processing webhook' });
+      res.status(500).json({ 
+        message: 'Error processing webhook',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        time: new Date().toISOString()
+      });
     }
   });
+  
+  // Test endpoint for simulating MUX webhook events (DEVELOPMENT ONLY)
+  if (process.env.NODE_ENV !== 'production') {
+    app.post('/api/test/mux-webhook', express.json(), async (req, res) => {
+      try {
+        console.log('Received test MUX webhook event:', req.body);
+        
+        // Extract event data
+        const { type, data } = req.body;
+        
+        if (!type || !data) {
+          return res.status(400).json({ message: 'Missing event type or data' });
+        }
+        
+        // Directly call the appropriate handler based on the event type
+        switch (type) {
+          case 'video.live_stream.active':
+            await muxClient.handleLivestreamActive(data);
+            break;
+          case 'video.live_stream.idle':
+            await muxClient.handleLivestreamIdle(data);
+            break;
+          case 'video.asset.ready':
+            await muxClient.handleAssetReady(data);
+            break;
+          default:
+            return res.status(400).json({ message: `Unsupported event type: ${type}` });
+        }
+        
+        res.status(200).json({ success: true, message: `Successfully processed test ${type} event` });
+      } catch (error) {
+        console.error('Error handling test MUX webhook:', error);
+        res.status(500).json({ message: 'Error processing test webhook' });
+      }
+    });
+  }
   
   // Track all connected WebSocket clients
   const connectedClients = new Map();

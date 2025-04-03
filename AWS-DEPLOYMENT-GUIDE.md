@@ -13,8 +13,23 @@ Set up the following environment variables in the AWS Amplify Console:
 - `VITE_STRIPE_PUBLIC_KEY`: Your Stripe public key (used on the client side)
 - `MUX_TOKEN_ID`: Your MUX Token ID
 - `MUX_TOKEN_SECRET`: Your MUX Token Secret
-- `MUX_WEBHOOK_SECRET`: Your MUX Webhook Secret
+- `MUX_WEBHOOK_SECRET`: Your MUX Webhook Secret (required for secure webhook verification)
 - `SESSION_SECRET`: A random string for session encryption
+
+## MUX Webhook Configuration
+After deployment, you'll need to set up MUX webhooks to notify your application about livestream events:
+
+1. Go to the MUX Dashboard
+2. Navigate to the Webhooks section
+3. Add a new webhook with the following settings:
+   - URL: `https://your-amplify-url.amplifyapp.com/api/webhooks/mux`
+   - Events to send: 
+     - `video.live_stream.active`
+     - `video.live_stream.idle`
+     - `video.asset.ready`
+   - Signing Secret: Generate a new secret and save it as `MUX_WEBHOOK_SECRET` in your environment variables
+
+The webhook endpoint is already implemented in the application and will automatically update livestream statuses based on events from MUX.
 
 ## Deployment Steps
 
