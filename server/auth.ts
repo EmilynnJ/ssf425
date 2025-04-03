@@ -15,7 +15,7 @@ declare global {
 
 const scryptAsync = promisify(scrypt);
 
-async function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
   return `${buf.toString("hex")}.${salt}`;
@@ -93,7 +93,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/register", async (req, res, next) => {
     try {
-      const { username, email, password, fullName, role } = req.body;
+      const { username, email, password, fullName } = req.body;
       
       // Check if username exists
       const existingUsername = await storage.getUserByUsername(username);
@@ -107,13 +107,13 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Email already exists" });
       }
       
-      // Create user with hashed password
+      // Create user with hashed password - only allow client role in public registration
       const user = await storage.createUser({
         username,
         email,
         password: await hashPassword(password),
         fullName,
-        role: role || "client",
+        role: "client", // Force client role for public registration
         bio: "",
         specialties: [],
         pricing: null,

@@ -2,9 +2,10 @@ import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword } from "./auth";
 import { z } from "zod";
-import { UserUpdate, Reading } from "@shared/schema";
+import { UserUpdate, Reading, insertUserSchema } from "@shared/schema";
+import { isAdmin, isAuthenticated } from "./middleware/auth-middleware";
 import stripeClient from "./services/stripe-client";
 // TRTC has been completely removed
 import * as muxClient from "./services/mux-client";
@@ -386,6 +387,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   
   // API Routes
+  
+  // Admin-only route for registering new readers
+  app.post("/api/admin/register-reader", isAdmin, async (req, res) => {
+    try {
+      const readerData = req.body;
+      
+      // Validate using the insertUserSchema
+      const validation = insertUserSchema.safeParse(readerData);
+      if (!validation.success) {
+        return res.status(400).json({ 
+          message: "Invalid reader data", 
+          errors: validation.error.errors 
+        });
+      }
+      
+      // Check if username exists
+      const existingUsername = await storage.getUserByUsername(readerData.username);
+      if (existingUsername) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      // Check if email exists
+      const existingEmail = await storage.getUserByEmail(readerData.email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+      
+      // Create reader user with hashed password
+      const hashedPassword = await hashPassword(readerData.password);
+      const reader = await storage.createUser({
+        ...readerData,
+        password: hashedPassword,
+        role: "reader", // Force reader role
+        verified: true, // Auto-verify readers created by admin
+      });
+      
+      // Remove password from response
+      const safeReader = { ...reader };
+      delete safeReader.password;
+      
+      res.status(201).json({ 
+        message: "Reader created successfully",
+        reader: safeReader
+      });
+    } catch (error) {
+      console.error("Error creating reader:", error);
+      res.status(500).json({ message: "Failed to create reader" });
+    }
+  });
+  
   
   // Readers
   app.get("/api/readers", async (req, res) => {
